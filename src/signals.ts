@@ -34,11 +34,15 @@ class Signal<Value> {
 
 class Effect {
   private deps: Set<Signal<unknown>> = new Set();
+  private cb: EffectCb;
 
-  constructor(private cb: EffectCb) {
-    currentEffect = this;
+  constructor(cb: EffectCb) {
+    this.cb = () => {
+      currentEffect = this;
+      cb();
+      currentEffect = null;
+    };
     this.cb();
-    currentEffect = null;
   }
 
   dispose() {
