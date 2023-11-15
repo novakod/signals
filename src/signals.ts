@@ -46,8 +46,7 @@ class Effect {
   }
 
   dispose() {
-    const removeCb = this.removeDependency.bind(this);
-    this.deps.forEach(removeCb);
+    this.deps.forEach((dep) => this.removeDependency(dep));
   }
 
   addDependency(signal: Signal<unknown>) {
