@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "vitest"
+    "test": "vitest",
+    "visualize-build": "vite-bundle-visualizer"
   },
   "devDependencies": {
     "typescript": "^5.0.2",
