@@ -200,3 +200,75 @@ test("Тестирование глубокого эффекта, который
   expect(dummy).toBe(2);
   expect(spy).toBeCalledTimes(2);
 });
+
+test("Тестирование глубоких сигналов на массивах", () => {
+  const signal = createDeepSignal({
+    array: [
+      {
+        id: 1,
+        age: 20,
+      },
+      {
+        id: 2,
+        age: 22,
+      },
+    ],
+  });
+
+  const spy = vitest.fn(() => {
+    signal.array[0].age;
+  });
+
+  createDeepEffect(spy);
+
+  expect(spy).toBeCalledTimes(1);
+
+  signal.array[0].age = 21;
+
+  expect(spy).toBeCalledTimes(2);
+
+  signal.array[0].id = 0;
+
+  expect(spy).toBeCalledTimes(2);
+
+  signal.array.push({
+    id: 3,
+    age: 23,
+  });
+
+  expect(spy).toBeCalledTimes(2);
+
+  signal.array[0] = {
+    id: 0,
+    age: 21,
+  };
+
+  expect(spy).toBeCalledTimes(3);
+
+  signal.array[0].id = 1;
+
+  expect(spy).toBeCalledTimes(3);
+
+  signal.array[0].age = 20;
+
+  expect(spy).toBeCalledTimes(4);
+});
+
+test("Тестирование глубоких сигналов на дате", () => {
+  const obj = createDeepSignal({
+    field: {
+      date: new Date(),
+    },
+  });
+  const spy = vitest.fn(() => {
+    obj.field.date;
+  });
+
+  createDeepEffect(spy);
+
+  expect(spy).toBeCalledTimes(1);
+
+  obj.field.date.setMinutes(20);
+
+  expect(spy).toBeCalledTimes(2);
+});
