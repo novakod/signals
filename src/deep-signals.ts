@@ -1,5 +1,4 @@
 import { createDeepProxy } from "@novakod/deep-proxy";
-import { isPureObject } from "@novakod/is-pure-object";
 
 let currentDeepEffect: DeepEffect | null = null;
 
