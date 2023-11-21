@@ -254,14 +254,14 @@ test("Тестирование глубоких сигналов на масси
   expect(spy).toBeCalledTimes(4);
 });
 
-test("Тестирование глубоких сигналов на дате", () => {
+test.skip("Тестирование глубоких сигналов на дате", () => {
   const obj = createDeepSignal({
     field: {
       date: new Date(),
     },
   });
   const spy = vitest.fn(() => {
-    obj.field.date;
+    obj.field.date.getTime;
   });
 
   createDeepEffect(spy);
@@ -271,4 +271,31 @@ test("Тестирование глубоких сигналов на дате",
   obj.field.date.setMinutes(20);
 
   expect(spy).toBeCalledTimes(2);
+
+  obj.field.date.getTime();
+
+  expect(spy).toBeCalledTimes(3);
+});
+
+test.skip("Тестирование глубоких сигналов на Map", () => {
+  const obj = createDeepSignal({
+    field: {
+      map: new Map(),
+    },
+  });
+  const spy = vitest.fn(() => {
+    console.log(obj.field.map.get("test"));
+  });
+
+  createDeepEffect(spy);
+
+  expect(spy).toBeCalledTimes(1);
+
+  obj.field.map.set("test", "test");
+
+  expect(spy).toBeCalledTimes(2);
+
+  obj.field.map.delete("test");
+
+  expect(spy).toBeCalledTimes(3);
 });

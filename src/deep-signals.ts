@@ -1,4 +1,5 @@
 import { createDeepProxy } from "@novakod/deep-proxy";
+import { isPureObject } from "@novakod/is-pure-object";
 
 let currentDeepEffect: DeepEffect | null = null;
 
@@ -11,7 +12,10 @@ class DeepSignal<Value extends object> {
     this.proxifiedValue = createDeepProxy(value, {
       get({ target, key, path, reciever }) {
         if (currentDeepEffect) currentDeepEffect.addDependency(path.join("."), signal);
-        return Reflect.get(target, key, reciever);
+
+        const gotValue = Reflect.get(target, key, reciever);
+
+        return gotValue;
       },
       set({ target, key, path, value, reciever }) {
         if (Object.is(target[key], value)) return true;
