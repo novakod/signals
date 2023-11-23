@@ -1,1 +1,1 @@
-export { createDeepSignal, createDeepEffect } from "./deep-signals";
+export { createDeepSignal, DeepSignal, createDeepEffect, DeepEffect } from "./deep-signals";

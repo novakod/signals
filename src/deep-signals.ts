@@ -2,7 +2,7 @@ import { createDeepProxy } from "@novakod/deep-proxy";
 
 let currentDeepEffect: DeepEffect | null = null;
 
-class DeepSignal<Value extends object> {
+export class DeepSignal<Value extends object> {
   private subscribers: Map<string, Set<VoidFunction>> = new Map();
   readonly proxifiedValue: Value;
 
@@ -51,7 +51,7 @@ export function createDeepSignal<Value extends object>(value: Value): Value {
   return signal.proxifiedValue;
 }
 
-class DeepEffect {
+export class DeepEffect {
   private deps: Map<string, Set<DeepSignal<any>>> = new Map();
   private cb: VoidFunction;
 
