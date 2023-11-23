@@ -254,6 +254,30 @@ test("Тестирование глубоких сигналов на масси
   expect(spy).toBeCalledTimes(4);
 });
 
+test("Тестирование отмены глубоких эффектов", () => {
+  const signal = createDeepSignal({
+    count: 0,
+  });
+
+  const spy = vitest.fn(() => {
+    signal.count;
+  });
+
+  const effect = createDeepEffect(spy);
+
+  expect(spy).toBeCalledTimes(1);
+
+  signal.count = 1;
+
+  expect(spy).toBeCalledTimes(2);
+
+  effect.dispose();
+
+  signal.count = 2;
+
+  expect(spy).toBeCalledTimes(2);
+});
+
 test.skip("Тестирование глубоких сигналов на дате", () => {
   const obj = createDeepSignal({
     field: {

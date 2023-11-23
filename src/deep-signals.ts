@@ -78,6 +78,14 @@ class DeepEffect {
 
     signal.unsubscribe(path, this.cb);
   }
+
+  dispose() {
+    this.deps.forEach((dep, key) => {
+      dep.forEach((signal) => {
+        signal.unsubscribe(key, this.cb);
+      });
+    });
+  }
 }
 
 export function createDeepEffect(cb: VoidFunction) {
