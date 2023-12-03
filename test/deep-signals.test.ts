@@ -323,3 +323,30 @@ test.skip("Тестирование глубоких сигналов на Map",
 
   expect(spy).toBeCalledTimes(3);
 });
+
+test("Тестирование глубоких эффектов на предмет передачи в функцию пути до изменённого поля сигнала", () => {
+  const signal = createDeepSignal({
+    count: 0,
+    nestedField: {
+      count: 0,
+    },
+  });
+
+  const spy = vitest.fn(() => {
+    signal.count;
+    signal.nestedField.count;
+  });
+
+  createDeepEffect(spy);
+
+  expect(spy).toBeCalledTimes(1);
+  expect(spy.mock.lastCall).toEqual([[]]);
+
+  signal.count = 1;
+  expect(spy).toBeCalledTimes(2);
+  expect(spy.mock.lastCall).toEqual([["count"]]);
+
+  signal.nestedField.count = 1;
+  expect(spy).toBeCalledTimes(3);
+  expect(spy.mock.lastCall).toEqual([["nestedField", "count"]]);
+});

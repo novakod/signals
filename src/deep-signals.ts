@@ -1,9 +1,11 @@
 import { createDeepProxy } from "@novakod/deep-proxy";
 
+type DeepEffectCb = (path: (string | symbol)[]) => void;
+
 let currentDeepEffect: DeepEffect | null = null;
 
 export class DeepSignal<Value extends object> {
-  private subscribers: Map<string, Set<VoidFunction>> = new Map();
+  private subscribers: Map<string, Set<DeepEffectCb>> = new Map();
   readonly proxifiedValue: Value;
 
   constructor(value: Value) {
@@ -21,18 +23,18 @@ export class DeepSignal<Value extends object> {
 
         const setResult = Reflect.set(target, key, value, reciever);
 
-        if (setResult) signal.runSubscribers(path.join("."));
+        if (setResult) signal.runSubscribers(path);
 
         return setResult;
       },
     });
   }
 
-  runSubscribers(path: string) {
-    this.subscribers.get(path)?.forEach((subscriber) => subscriber());
+  runSubscribers(path: Parameters<DeepEffectCb>[0]) {
+    this.subscribers.get(path.join("."))?.forEach((subscriber) => subscriber(path));
   }
 
-  subscribe(path: string, cb: VoidFunction) {
+  subscribe(path: string, cb: DeepEffectCb) {
     if (!this.subscribers.has(path)) {
       this.subscribers.set(path, new Set());
     }
@@ -40,7 +42,7 @@ export class DeepSignal<Value extends object> {
     this.subscribers.get(path)!.add(cb);
   }
 
-  unsubscribe(path: string, cb: VoidFunction) {
+  unsubscribe(path: string, cb: DeepEffectCb) {
     this.subscribers.get(path)?.delete(cb);
   }
 }
@@ -53,15 +55,15 @@ export function createDeepSignal<Value extends object>(value: Value): Value {
 
 export class DeepEffect {
   private deps: Map<string, Set<DeepSignal<any>>> = new Map();
-  private cb: VoidFunction;
+  private cb: DeepEffectCb;
 
-  constructor(cb: VoidFunction) {
-    this.cb = () => {
+  constructor(cb: DeepEffectCb) {
+    this.cb = (path) => {
       currentDeepEffect = this;
-      cb();
+      cb(path);
       currentDeepEffect = null;
     };
-    this.cb();
+    this.cb([]);
   }
 
   addDependency(path: string, signal: DeepSignal<any>) {
@@ -88,6 +90,6 @@ export class DeepEffect {
   }
 }
 
-export function createDeepEffect(cb: VoidFunction) {
+export function createDeepEffect(cb: DeepEffectCb) {
   return new DeepEffect(cb);
 }
