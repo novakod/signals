@@ -1,5 +1,5 @@
 import { test, expect, vitest } from "vitest";
-import { createDeepSignal, createDeepEffect } from "../src/deep-signals";
+import { createDeepSignal, createDeepEffect, deepUntracked } from "../src/deep-signals";
 
 test("Тестирования глубоких сигналов на функции, в которой не используются сигналы", () => {
   const signal = createDeepSignal({
@@ -353,4 +353,38 @@ test("Тестирование глубоких эффектов на предм
   signal.nestedField.count = 0;
   expect(spy).toBeCalledTimes(4);
   expect(spy.mock.lastCall).toEqual([[{ path: ["nestedField", "count"], oldValue: 1, newValue: 0 }]]);
+});
+
+test("Тестирование функции deepUntracked", () => {
+  const signal = createDeepSignal({
+    count: 0,
+    nestedField: {
+      count: 0,
+    },
+  });
+
+  const spy = vitest.fn(() => {
+    signal.count;
+    const nestedCount = deepUntracked(() => {
+      return signal.nestedField.count;
+    });
+
+    return nestedCount;
+  });
+
+  createDeepEffect(spy);
+
+  expect(spy).toBeCalledTimes(1);
+  expect(spy.mock.results[0].value).toEqual(0);
+
+  signal.count = 1;
+  expect(spy).toBeCalledTimes(2);
+  expect(spy.mock.results[1].value).toEqual(0);
+
+  signal.nestedField.count = 1;
+  expect(spy).toBeCalledTimes(2);
+
+  signal.count = 2;
+  expect(spy).toBeCalledTimes(3);
+  expect(spy.mock.results[2].value).toEqual(1);
 });
