@@ -25,9 +25,10 @@ export class DeepSignal<Value extends object> {
         return gotValue;
       },
       set({ target, key, path, value, reciever }) {
-        if (Object.is(target[key], value)) return true;
-
         const oldValue = Reflect.get(target, key, reciever);
+
+        if (Object.is(oldValue, value)) return true;
+
         const setResult = Reflect.set(target, key, value, reciever);
 
         if (setResult) signal.runSubscribers(path, [{ path, oldValue, newValue: value }]);
