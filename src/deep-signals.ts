@@ -1,6 +1,12 @@
 import { createDeepProxy } from "@novakod/deep-proxy";
 
-type DeepEffectCb = (path: (string | symbol)[]) => void;
+type DeepEffectCbParams = {
+  path: (string | symbol)[];
+  oldValue: unknown;
+  newValue: unknown;
+};
+
+type DeepEffectCb = (params: DeepEffectCbParams) => void;
 
 let currentDeepEffect: DeepEffect | null = null;
 
@@ -21,17 +27,18 @@ export class DeepSignal<Value extends object> {
       set({ target, key, path, value, reciever }) {
         if (Object.is(target[key], value)) return true;
 
+        const oldValue = Reflect.get(target, key, reciever);
         const setResult = Reflect.set(target, key, value, reciever);
 
-        if (setResult) signal.runSubscribers(path);
+        if (setResult) signal.runSubscribers({ path, oldValue, newValue: value });
 
         return setResult;
       },
     });
   }
 
-  runSubscribers(path: Parameters<DeepEffectCb>[0]) {
-    this.subscribers.get(path.join("."))?.forEach((subscriber) => subscriber(path));
+  runSubscribers(params: DeepEffectCbParams) {
+    this.subscribers.get(params.path.join("."))?.forEach((subscriber) => subscriber(params));
   }
 
   subscribe(path: string, cb: DeepEffectCb) {
@@ -58,12 +65,12 @@ export class DeepEffect {
   private cb: DeepEffectCb;
 
   constructor(cb: DeepEffectCb) {
-    this.cb = (path) => {
+    this.cb = (params) => {
       currentDeepEffect = this;
-      cb(path);
+      cb(params);
       currentDeepEffect = null;
     };
-    this.cb([]);
+    this.cb({ path: [], newValue: undefined, oldValue: undefined });
   }
 
   addDependency(path: string, signal: DeepSignal<any>) {
