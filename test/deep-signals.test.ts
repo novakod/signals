@@ -340,17 +340,17 @@ test("Тестирование глубоких эффектов на предм
   createDeepEffect(spy);
 
   expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.lastCall).toEqual([{ path: [], oldValue: undefined, newValue: undefined }]);
+  expect(spy.mock.lastCall).toEqual([[{ path: [], oldValue: undefined, newValue: undefined }]]);
 
   signal.count = 1;
   expect(spy).toBeCalledTimes(2);
-  expect(spy.mock.lastCall).toEqual([{ path: ["count"], oldValue: 0, newValue: 1 }]);
+  expect(spy.mock.lastCall).toEqual([[{ path: ["count"], oldValue: 0, newValue: 1 }]]);
 
   signal.nestedField.count = 1;
   expect(spy).toBeCalledTimes(3);
-  expect(spy.mock.lastCall).toEqual([{ path: ["nestedField", "count"], oldValue: 0, newValue: 1 }]);
+  expect(spy.mock.lastCall).toEqual([[{ path: ["nestedField", "count"], oldValue: 0, newValue: 1 }]]);
 
   signal.nestedField.count = 0;
   expect(spy).toBeCalledTimes(4);
-  expect(spy.mock.lastCall).toEqual([{ path: ["nestedField", "count"], oldValue: 1, newValue: 0 }]);
+  expect(spy.mock.lastCall).toEqual([[{ path: ["nestedField", "count"], oldValue: 1, newValue: 0 }]]);
 });
