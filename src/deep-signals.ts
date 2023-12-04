@@ -100,3 +100,12 @@ export class DeepEffect {
 export function createDeepEffect(cb: DeepEffectCb) {
   return new DeepEffect(cb);
 }
+
+export function deepUntracked<Value>(cb: () => Value): Value {
+  const currentEffect = currentDeepEffect;
+  currentDeepEffect = null;
+  const value = cb();
+  currentDeepEffect = currentEffect;
+
+  return value;
+}
