@@ -11,7 +11,7 @@ type DeepEffectCb = (changes: DeepEffectCbChange[]) => void;
 let currentDeepEffect: DeepEffect | null = null;
 
 export class DeepSignal<Value extends object> {
-  private subscribers: Map<string, Set<DeepEffectCb>> = new Map();
+  readonly subscribers: Map<string, Set<DeepEffect>> = new Map();
   readonly proxifiedValue: Value;
 
   constructor(value: Value) {
@@ -39,19 +39,19 @@ export class DeepSignal<Value extends object> {
   }
 
   runSubscribers(path: DeepEffectCbChange["path"], changes: DeepEffectCbChange[]) {
-    this.subscribers.get(path.join("."))?.forEach((subscriber) => subscriber(changes));
+    this.subscribers.get(path.join("."))?.forEach((effect) => effect.runCb(changes));
   }
 
-  subscribe(path: string, cb: DeepEffectCb) {
+  subscribe(path: string, effect: DeepEffect) {
     if (!this.subscribers.has(path)) {
       this.subscribers.set(path, new Set());
     }
 
-    this.subscribers.get(path)!.add(cb);
+    this.subscribers.get(path)!.add(effect);
   }
 
-  unsubscribe(path: string, cb: DeepEffectCb) {
-    this.subscribers.get(path)?.delete(cb);
+  unsubscribe(path: string, effect: DeepEffect) {
+    this.subscribers.get(path)?.delete(effect);
   }
 }
 
@@ -71,7 +71,12 @@ export class DeepEffect {
       cb(params);
       currentDeepEffect = null;
     };
-    this.cb([{ path: [], newValue: undefined, oldValue: undefined }]);
+
+    this.runCb([{ path: [], newValue: undefined, oldValue: undefined }]);
+  }
+
+  runCb(changes: DeepEffectCbChange[]) {
+    this.cb(changes);
   }
 
   addDependency(path: string, signal: DeepSignal<any>) {
@@ -80,19 +85,19 @@ export class DeepEffect {
     }
 
     this.deps.get(path)!.add(signal);
-    signal.subscribe(path, this.cb);
+    signal.subscribe(path, this);
   }
 
   removeDependency(path: string, signal: DeepSignal<any>) {
     this.deps.get(path)?.delete(signal);
 
-    signal.unsubscribe(path, this.cb);
+    signal.unsubscribe(path, this);
   }
 
   dispose() {
     this.deps.forEach((dep, key) => {
       dep.forEach((signal) => {
-        signal.unsubscribe(key, this.cb);
+        signal.unsubscribe(key, this);
       });
     });
   }
