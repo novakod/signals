@@ -78,8 +78,7 @@ export class DeepEffect {
 
   runCb(changes: DeepEffectCbChange[]) {
     if (currentBatch) {
-      if (currentBatch.has(this)) currentBatch.set(this, new Set([...currentBatch.get(this)!, ...changes]));
-      else currentBatch.set(this, new Set(changes));
+      currentBatch.set(this, new Set(currentBatch.has(this) ? [...currentBatch.get(this)!, ...changes] : changes));
     } else this.cb(changes);
   }
 
