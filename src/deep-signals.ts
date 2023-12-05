@@ -1,12 +1,13 @@
 import { createDeepProxy } from "@novakod/deep-proxy";
 
-type DeepEffectCbChange = {
+export type DeepEffectCbChange = {
+  signalValue: unknown;
   path: (string | symbol)[];
   oldValue: unknown;
   newValue: unknown;
 };
 
-type DeepEffectCb = (changes: DeepEffectCbChange[]) => void;
+export type DeepEffectCb = (changes: DeepEffectCbChange[]) => void;
 
 let currentDeepEffect: DeepEffect | null = null;
 let currentBatch: Map<DeepEffect, Set<DeepEffectCbChange>> | null = null;
@@ -32,7 +33,7 @@ export class DeepSignal<Value extends object> {
 
         const setResult = Reflect.set(target, key, value, reciever);
 
-        if (setResult) signal.runSubscribers(path, [{ path, oldValue, newValue: value }]);
+        if (setResult) signal.runSubscribers(path, [{ signalValue: signal.proxifiedValue, path, oldValue, newValue: value }]);
 
         return setResult;
       },
@@ -73,7 +74,7 @@ export class DeepEffect {
       currentDeepEffect = null;
     };
 
-    this.runCb([{ path: [], newValue: undefined, oldValue: undefined }]);
+    this.runCb([{ signalValue: undefined, path: [], newValue: undefined, oldValue: undefined }]);
   }
 
   runCb(changes: DeepEffectCbChange[]) {
