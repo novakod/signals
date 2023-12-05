@@ -1,5 +1,5 @@
 import { test, expect, vitest } from "vitest";
-import { createDeepSignal, createDeepEffect, deepUntracked } from "../src/deep-signals";
+import { createDeepSignal, createDeepEffect, deepUntracked, deepBatch } from "../src/deep-signals";
 
 test("Тестирования глубоких сигналов на функции, в которой не используются сигналы", () => {
   const signal = createDeepSignal({
@@ -387,4 +387,81 @@ test("Тестирование функции deepUntracked", () => {
   signal.count = 2;
   expect(spy).toBeCalledTimes(3);
   expect(spy.mock.results[2].value).toEqual(1);
+});
+
+test("Тестирование функции deepBatch", () => {
+  const signal = createDeepSignal({
+    count: 0,
+  });
+
+  const spy = vitest.fn(() => {
+    signal.count;
+  });
+
+  createDeepEffect(spy);
+
+  expect(spy).toBeCalledTimes(1);
+
+  signal.count++;
+  signal.count++;
+
+  expect(spy).toBeCalledTimes(3);
+  expect(signal.count).toEqual(2);
+
+  deepBatch(() => {
+    signal.count++;
+    signal.count++;
+  });
+
+  expect(spy).toBeCalledTimes(4);
+  expect(signal.count).toEqual(4);
+});
+
+test("Тестирование функции deepBatch на нескольких сигналах", () => {
+  const signal1 = createDeepSignal({
+    count: 0,
+  });
+
+  const signal2 = createDeepSignal({
+    count: 0,
+  });
+
+  const spy = vitest.fn(() => {
+    signal1.count;
+    signal2.count;
+  });
+
+  createDeepEffect(spy);
+
+  expect(spy).toBeCalledTimes(1);
+
+  signal1.count++;
+  signal1.count++;
+  expect(spy).toBeCalledTimes(3);
+
+  signal2.count++;
+  signal2.count++;
+  expect(spy).toBeCalledTimes(5);
+
+  signal1.count++;
+  signal2.count++;
+  expect(spy).toBeCalledTimes(7);
+
+  deepBatch(() => {
+    signal1.count++;
+    signal1.count++;
+  });
+  expect(spy).toBeCalledTimes(8);
+
+  deepBatch(() => {
+    signal2.count++;
+    signal2.count++;
+  });
+  expect(spy).toBeCalledTimes(9);
+
+  deepBatch(() => {
+    signal1.count++;
+    signal2.count++;
+  });
+  expect(spy).toBeCalledTimes(10);
 });

@@ -9,6 +9,7 @@ type DeepEffectCbChange = {
 type DeepEffectCb = (changes: DeepEffectCbChange[]) => void;
 
 let currentDeepEffect: DeepEffect | null = null;
+let currentBatch: Map<DeepEffect, Set<DeepEffectCbChange>> | null = null;
 
 export class DeepSignal<Value extends object> {
   readonly subscribers: Map<string, Set<DeepEffect>> = new Map();
@@ -76,7 +77,10 @@ export class DeepEffect {
   }
 
   runCb(changes: DeepEffectCbChange[]) {
-    this.cb(changes);
+    if (currentBatch) {
+      if (currentBatch.has(this)) currentBatch.set(this, new Set([...currentBatch.get(this)!, ...changes]));
+      else currentBatch.set(this, new Set(changes));
+    } else this.cb(changes);
   }
 
   addDependency(path: string, signal: DeepSignal<any>) {
@@ -114,4 +118,12 @@ export function deepUntracked<Value>(cb: () => Value): Value {
   currentDeepEffect = currentEffect;
 
   return value;
+}
+
+export function deepBatch(cb: () => void) {
+  currentBatch = new Map();
+  cb();
+  const batch = currentBatch;
+  currentBatch = null;
+  for (const [effect, changes] of batch) effect.runCb([...changes]);
 }
