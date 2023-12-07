@@ -136,7 +136,9 @@ export function deepCompute<Value extends object>(cb: () => Value): Value {
     const newValue = cb();
 
     const diffs = findObjDiffs(value, newValue);
-    applyObjDiffs(signal, diffs);
+    deepBatch(() => {
+      applyObjDiffs(signal, diffs);
+    });
     value = newValue;
   });
   signal = createDeepSignal(value);
