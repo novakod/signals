@@ -1,1 +1,1 @@
-export { createDeepSignal, DeepSignal, createDeepEffect, DeepEffect } from "./deep-signals";
+export { createDeepSignal, DeepSignal, createDeepEffect, DeepEffect, type DeepEffectCb, type DeepEffectCbChange, deepBatch, deepCompute, deepUntracked } from "./deep-signals";
