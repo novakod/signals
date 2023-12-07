@@ -1,4 +1,5 @@
 import { createDeepProxy } from "@novakod/deep-proxy";
+import { applyObjDiffs, findObjDiffs } from "./utils";
 
 export type DeepEffectCbChange = {
   signalValue: unknown;
@@ -126,4 +127,19 @@ export function deepBatch(cb: () => void) {
   const batch = currentBatch;
   currentBatch = null;
   for (const [effect, changes] of batch) effect.runCb([...changes]);
+}
+
+export function deepCompute<Value extends object>(cb: () => Value): Value {
+  let value: Value = {} as Value;
+  let signal: Value = {} as Value;
+  createDeepEffect(() => {
+    const newValue = cb();
+
+    const diffs = findObjDiffs(value, newValue);
+    applyObjDiffs(signal, diffs);
+    value = newValue;
+  });
+  signal = createDeepSignal(value);
+
+  return signal;
 }
