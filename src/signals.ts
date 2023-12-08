@@ -60,10 +60,10 @@ export class Effect {
   }
 }
 
-export function signal<Value>(value: Value) {
+export function createSignal<Value>(value: Value) {
   return new Signal(value);
 }
 
-export function effect(cb: EffectCb) {
+export function createEffect(cb: EffectCb) {
   return new Effect(cb);
 }

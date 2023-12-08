@@ -1,5 +1,5 @@
 import { test, expect, vitest } from "vitest";
-import { createDeepSignal, createDeepEffect, deepUntracked, deepBatch, DeepEffectCbChange, deepCompute } from "../src/deep-signals";
+import { createDeepSignal, createDeepEffect, deepUntrack, deepBatch, DeepEffectCbChange, deepCompute } from "../src/deep-signals";
 
 test("Тестирования глубоких сигналов на функции, в которой не используются сигналы", () => {
   const signal = createDeepSignal({
@@ -368,7 +368,7 @@ test("Тестирование функции deepUntracked", () => {
 
   const spy = vitest.fn(() => {
     signal.count;
-    const nestedCount = deepUntracked(() => {
+    const nestedCount = deepUntrack(() => {
       return signal.nestedField.count;
     });
 
