@@ -2,7 +2,7 @@ type EffectCb = () => void;
 
 let currentEffect: Effect | null = null;
 
-class Signal<Value> {
+export class Signal<Value> {
   private subscribers: Set<VoidFunction> = new Set();
 
   constructor(private _value: Value) {}
@@ -32,7 +32,7 @@ class Signal<Value> {
   }
 }
 
-class Effect {
+export class Effect {
   private deps: Set<Signal<unknown>> = new Set();
   private cb: EffectCb;
 
@@ -60,10 +60,10 @@ class Effect {
   }
 }
 
-export function createSignal<Value>(value: Value) {
+export function signal<Value>(value: Value) {
   return new Signal(value);
 }
 
-export function createEffect(cb: EffectCb) {
+export function effect(cb: EffectCb) {
   return new Effect(cb);
 }

@@ -58,7 +58,7 @@ export class DeepSignal<Value extends object> {
   }
 }
 
-export function createDeepSignal<Value extends object>(value: Value): Value {
+export function deepSignal<Value extends object>(value: Value): Value {
   const signal = new DeepSignal(value);
 
   return signal.proxifiedValue;
@@ -108,11 +108,11 @@ export class DeepEffect {
   }
 }
 
-export function createDeepEffect(cb: DeepEffectCb) {
+export function deepEffect(cb: DeepEffectCb) {
   return new DeepEffect(cb);
 }
 
-export function deepUntracked<Value>(cb: () => Value): Value {
+export function deepUntrack<Value>(cb: () => Value): Value {
   const currentEffect = currentDeepEffect;
   currentDeepEffect = null;
   const value = cb();
@@ -132,7 +132,7 @@ export function deepBatch(cb: () => void) {
 export function deepCompute<Value extends object>(cb: () => Value): Value {
   let value: Value = {} as Value;
   let signal: Value = {} as Value;
-  createDeepEffect(() => {
+  deepEffect(() => {
     const newValue = cb();
 
     const diffs = findObjDiffs(value, newValue);
@@ -141,7 +141,7 @@ export function deepCompute<Value extends object>(cb: () => Value): Value {
     });
     value = newValue;
   });
-  signal = createDeepSignal(value);
+  signal = deepSignal(value);
 
   return signal;
 }
