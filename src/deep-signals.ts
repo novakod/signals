@@ -1,5 +1,5 @@
 import { createDeepProxy } from "@novakod/deep-proxy";
-import { applyObjDiffs, findObjDiffs } from "./utils";
+import { Diff, applyObjDiffs, findObjDiffs } from "./utils";
 
 export type DeepEffectCbChange = {
   signalValue: unknown;
@@ -9,6 +9,12 @@ export type DeepEffectCbChange = {
 };
 
 export type DeepEffectCb = (changes: DeepEffectCbChange[]) => void;
+
+export type DeepComputeResultCbChange = Diff;
+
+export type DeepComputeCb<Value extends object> = (changes: DeepEffectCbChange[]) => Value;
+
+export type DeepComputeResultCb = (computeChanges: DeepComputeResultCbChange[], effectChanges: DeepEffectCbChange[]) => void;
 
 let currentDeepEffect: DeepEffect | null = null;
 let currentBatch: Map<DeepEffect, Set<DeepEffectCbChange>> | null = null;
@@ -129,17 +135,18 @@ export function deepBatch(cb: () => void) {
   for (const [effect, changes] of batch) effect.runCb([...changes]);
 }
 
-export function deepCompute<Value extends object>(cb: () => Value): Value {
+export function deepCompute<Value extends object>(cb: DeepComputeCb<Value>, result?: DeepComputeResultCb): Value {
   let value: Value = {} as Value;
   let signal: Value = {} as Value;
-  createDeepEffect(() => {
-    const newValue = cb();
+  createDeepEffect((changes) => {
+    const newValue = cb(changes);
 
     const diffs = findObjDiffs(value, newValue);
     deepBatch(() => {
       applyObjDiffs(signal, diffs);
     });
     value = newValue;
+    result?.(diffs, changes);
   });
   signal = createDeepSignal(value);
 
