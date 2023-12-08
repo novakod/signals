@@ -27,7 +27,10 @@ export class DeepSignal<Value extends object> {
     const signal = this;
     this.proxifiedValue = createDeepProxy(value, {
       get({ target, key, path, reciever }) {
-        if (currentDeepEffect) currentDeepEffect.addDependency(path.join("."), signal);
+        if (currentDeepEffect) {
+          signal.subscribe(path.join("."), currentDeepEffect);
+          currentDeepEffect.addDependency(signal);
+        }
 
         const gotValue = Reflect.get(target, key, reciever);
 
@@ -59,8 +62,8 @@ export class DeepSignal<Value extends object> {
     this.subscribers.get(path)!.add(effect);
   }
 
-  unsubscribe(path: string, effect: DeepEffect) {
-    this.subscribers.get(path)?.delete(effect);
+  unsubscribe(effect: DeepEffect) {
+    this.subscribers.forEach((set) => set.delete(effect));
   }
 }
 
@@ -71,7 +74,7 @@ export function createDeepSignal<Value extends object>(value: Value): Value {
 }
 
 export class DeepEffect {
-  private deps: Map<string, Set<DeepSignal<any>>> = new Map();
+  private deps: Set<DeepSignal<any>> = new Set();
   private cb: DeepEffectCb;
 
   constructor(cb: DeepEffectCb) {
@@ -90,27 +93,15 @@ export class DeepEffect {
     } else this.cb(changes);
   }
 
-  addDependency(path: string, signal: DeepSignal<any>) {
-    if (!this.deps.has(path)) {
-      this.deps.set(path, new Set());
-    }
-
-    this.deps.get(path)!.add(signal);
-    signal.subscribe(path, this);
-  }
-
-  removeDependency(path: string, signal: DeepSignal<any>) {
-    this.deps.get(path)?.delete(signal);
-
-    signal.unsubscribe(path, this);
+  addDependency(signal: DeepSignal<any>) {
+    this.deps.add(signal);
   }
 
   dispose() {
-    this.deps.forEach((dep, key) => {
-      dep.forEach((signal) => {
-        signal.unsubscribe(key, this);
-      });
+    this.deps.forEach((signal) => {
+      signal.unsubscribe(this);
     });
+    this.deps.clear();
   }
 }
 
