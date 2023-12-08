@@ -28,7 +28,7 @@ export class DeepSignal<Value extends object> {
     this.proxifiedValue = createDeepProxy(value, {
       get({ target, key, path, reciever }) {
         if (currentDeepEffect) {
-          signal.subscribe(path.join("."), currentDeepEffect);
+          signal.subscribe(path, currentDeepEffect);
           currentDeepEffect.addDependency(signal);
         }
 
@@ -54,12 +54,13 @@ export class DeepSignal<Value extends object> {
     this.subscribers.get(path.join("."))?.forEach((effect) => effect.runCb(changes));
   }
 
-  subscribe(path: string, effect: DeepEffect) {
-    if (!this.subscribers.has(path)) {
-      this.subscribers.set(path, new Set());
+  subscribe(path: DeepEffectCbChange["path"], effect: DeepEffect) {
+    const joinedPath = path.join(".");
+    if (!this.subscribers.has(joinedPath)) {
+      this.subscribers.set(joinedPath, new Set());
     }
 
-    this.subscribers.get(path)!.add(effect);
+    this.subscribers.get(joinedPath)!.add(effect);
   }
 
   unsubscribe(effect: DeepEffect) {
