@@ -98,6 +98,10 @@ export class DeepEffect {
     this.deps.add(signal);
   }
 
+  removeDependency(signal: DeepSignal<any>) {
+    this.deps.delete(signal);
+  }
+
   dispose() {
     this.deps.forEach((signal) => {
       signal.unsubscribe(this);
