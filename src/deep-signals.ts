@@ -29,7 +29,7 @@ export class DeepSignal<Value extends object> {
       get({ target, key, path, reciever }) {
         if (currentDeepEffect) {
           signal.subscribe(path, currentDeepEffect);
-          currentDeepEffect.addDependency(signal);
+          currentDeepEffect.addDependency(path, signal);
         }
 
         const gotValue = Reflect.get(target, key, reciever);
@@ -51,7 +51,11 @@ export class DeepSignal<Value extends object> {
   }
 
   runSubscribers(path: DeepEffectCbChange["path"], changes: DeepEffectCbChange[]) {
-    this.subscribers.get(path.join("."))?.forEach((effect) => effect.runCb(changes));
+    for (let i = 0; i < path.length; i++) {
+      const subPath = path.slice(0, i + 1);
+
+      this.subscribers.get(subPath.join("."))?.forEach((effect) => (effect.isExplicitDependency(subPath, this) || i === path.length - 1) && effect.runCb(changes));
+    }
   }
 
   subscribe(path: DeepEffectCbChange["path"], effect: DeepEffect) {
@@ -75,7 +79,8 @@ export function createDeepSignal<Value extends object>(value: Value): Value {
 }
 
 export class DeepEffect {
-  private deps: Set<DeepSignal<any>> = new Set();
+  private deps: Map<DeepSignal<any>, Map<string, boolean>> = new Map();
+  private prevDep: [string, DeepSignal<any>] | null = null;
   private cb: DeepEffectCb;
 
   constructor(cb: DeepEffectCb) {
@@ -94,8 +99,26 @@ export class DeepEffect {
     } else this.cb(changes);
   }
 
-  addDependency(signal: DeepSignal<any>) {
-    this.deps.add(signal);
+  isExplicitDependency(path: DeepEffectCbChange["path"], signal: DeepSignal<any>) {
+    return this.deps.get(signal)?.get(path.join("."));
+  }
+
+  addDependency(path: DeepEffectCbChange["path"], signal: DeepSignal<any>) {
+    if (!this.deps.has(signal)) {
+      this.deps.set(signal, new Map());
+    }
+
+    this.deps.get(signal)!.set(path.join("."), true);
+
+    if (this.prevDep) {
+      const [prevPath, prevSignal] = this.prevDep;
+
+      if (prevPath === path.slice(0, -1).join(".") && prevSignal === signal) {
+        this.deps.get(signal)!.set(prevPath, false);
+      }
+    }
+
+    this.prevDep = [path.join("."), signal];
   }
 
   removeDependency(signal: DeepSignal<any>) {
@@ -103,7 +126,7 @@ export class DeepEffect {
   }
 
   dispose() {
-    this.deps.forEach((signal) => {
+    [...this.deps.keys()].forEach((signal) => {
       signal.unsubscribe(this);
     });
     this.deps.clear();
