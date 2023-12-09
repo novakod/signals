@@ -252,6 +252,21 @@ test("Тестирование глубоких сигналов на масси
   signal.array[0].age = 20;
 
   expect(spy).toBeCalledTimes(4);
+
+  const signal2 = createDeepSignal({
+    arr: [1, 2, 3],
+  });
+
+  const spy2 = vitest.fn(() => {
+    signal2.arr;
+  });
+
+  createDeepEffect(spy2);
+
+  expect(spy2).toBeCalledTimes(1);
+
+  signal2.arr.push(4);
+  expect(spy2).toBeCalledTimes(2);
 });
 
 test("Тестирование отмены глубоких эффектов", () => {
