@@ -1,5 +1,6 @@
-import { createDeepProxy } from "@novakod/deep-proxy";
+import { createDeepProxy, isDeepProxy, isProxifiedData, unproxify } from "@novakod/deep-proxy";
 import { Diff, applyObjDiffs, findObjDiffs } from "./utils";
+import { deepClone } from "@novakod/deep-clone";
 
 export type DeepEffectCbChange = {
   signalValue: unknown;
@@ -159,14 +160,16 @@ export function deepCompute<Value extends object>(cb: DeepComputeCb<Value>, resu
   let value: Value = {} as Value;
   let signal: Value = {} as Value;
   createDeepEffect((changes) => {
-    const newValue = cb(changes);
+    let newValue = cb(changes);
+
+    if (isProxifiedData(newValue) && isDeepProxy(newValue)) newValue = unproxify(newValue);
 
     deepUntrack(() => {
       const diffs = findObjDiffs(value, newValue);
       deepBatch(() => {
         applyObjDiffs(signal, diffs);
       });
-      value = newValue;
+      value = deepClone(newValue);
       result?.(diffs, changes);
     });
   });
