@@ -161,12 +161,14 @@ export function deepCompute<Value extends object>(cb: DeepComputeCb<Value>, resu
   createDeepEffect((changes) => {
     const newValue = cb(changes);
 
-    const diffs = findObjDiffs(value, newValue);
-    deepBatch(() => {
-      applyObjDiffs(signal, diffs);
+    deepUntrack(() => {
+      const diffs = findObjDiffs(value, newValue);
+      deepBatch(() => {
+        applyObjDiffs(signal, diffs);
+      });
+      value = newValue;
+      result?.(diffs, changes);
     });
-    value = newValue;
-    result?.(diffs, changes);
   });
   signal = createDeepSignal(value);
 
