@@ -32,7 +32,7 @@
     "vitest": "^0.34.6"
   },
   "dependencies": {
-    "@novakod/deep-proxy": "^0.5.5",
+    "@novakod/deep-proxy": "^0.6.1",
     "@novakod/is-pure-object": "^1.0.4"
   }
 }
