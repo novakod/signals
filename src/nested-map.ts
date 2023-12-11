@@ -5,7 +5,7 @@ class CustomMap<Key, Value> extends Map<Key, Value> {
 }
 
 export class NestedMap<Value> {
-  readonly map: CustomMap<MapKey, CustomMap<MapKey, Value> | Value> = new CustomMap();
+  private readonly map: CustomMap<MapKey, CustomMap<MapKey, Value> | Value> = new CustomMap();
 
   private getMap(path: MapKey[]) {
     return path.reduce<CustomMap<MapKey, any> | undefined>((map, key) => {
@@ -15,7 +15,7 @@ export class NestedMap<Value> {
     }, this.map);
   }
 
-  set(path: [MapKey, ...MapKey[]], value: Value): ThisType<NestedMap<Value>> {
+  set(path: MapKey[], value: Value): ThisType<NestedMap<Value>> {
     const lastMap = path.slice(0, -1).reduce((map, key) => {
       if (!map.has(key)) {
         const newMap = new CustomMap<MapKey, Value>();
@@ -45,7 +45,7 @@ export class NestedMap<Value> {
     }
   }
 
-  has(path: [MapKey, ...MapKey[]]): boolean {
+  has(path: MapKey[]): boolean {
     const lastMap = this.getMap(path.slice(0, -1));
 
     const lastKey = path[path.length - 1];
