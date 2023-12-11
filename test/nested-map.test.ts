@@ -18,9 +18,9 @@ test.only("Тестирование класса NestedMap", () => {
 
   nestedMap.forEach(spy);
   expect(spy).toBeCalledTimes(3);
-  expect(spy.mock.calls[0]).toEqual(["test_abc", ["a", "b", "c"]]);
-  expect(spy.mock.calls[1]).toEqual(["test_ab", ["a", "b"]]);
-  expect(spy.mock.calls[2]).toEqual(["test_abcd", ["a", "b", "c", "d"]]);
+  expect(spy).toBeCalledWith("test_abc", ["a", "b", "c"]);
+  expect(spy).toBeCalledWith("test_ab", ["a", "b"]);
+  expect(spy).toBeCalledWith("test_abcd", ["a", "b", "c", "d"]);
   expect(nestedMap.delete(["a", "b", "c"])).toBe(true);
   expect(nestedMap.delete(["a", "b", "c"])).toBe(false);
   expect(nestedMap.delete(["a", "b"])).toBe(true);
