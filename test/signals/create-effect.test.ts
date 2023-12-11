@@ -1,5 +1,5 @@
-import { test, expect, vitest } from "vitest";
-import { createEffect, createSignal } from "../src/signals";
+import { expect, test, vitest } from "vitest";
+import { createEffect, createSignal } from "../../src/signals";
 
 test("Тестирование сигналов на простом примере", () => {
   let dummy;
