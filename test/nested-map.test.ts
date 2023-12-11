@@ -1,7 +1,7 @@
-import { expect, test } from "vitest";
+import { expect, test, vitest } from "vitest";
 import { NestedMap } from "../src/nested-map";
 
-test("Тестирование класса NestedMap", () => {
+test.only("Тестирование класса NestedMap", () => {
   const nestedMap = new NestedMap();
 
   expect(nestedMap.set(["a", "b", "c"], "test_abc")).toBe(nestedMap);
@@ -21,6 +21,15 @@ test("Тестирование класса NestedMap", () => {
   expect(nestedMap.has(["a", "b"])).toBe(true);
 
   expect(nestedMap.has(["a"])).toBe(false);
+
+  const spy = vitest.fn<[unknown, path: (string | number | symbol)[]]>();
+
+  nestedMap.forEach(spy);
+
+  expect(spy).toBeCalledTimes(3);
+  expect(spy.mock.calls[0]).toEqual(["test_abc", ["a", "b", "c"]]);
+  expect(spy.mock.calls[1]).toEqual(["test_ab", ["a", "b"]]);
+  expect(spy.mock.calls[2]).toEqual(["test_abcd", ["a", "b", "c", "d"]]);
 
   expect(nestedMap.delete(["a", "b", "c"])).toBe(true);
 

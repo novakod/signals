@@ -6,6 +6,7 @@ class CustomMap<Key, Value> extends Map<Key, Value> {
 
 export class NestedMap<Value> {
   private readonly map: CustomMap<MapKey, CustomMap<MapKey, Value> | Value> = new CustomMap();
+  private readonly allValues: Set<[path: MapKey[], value: Value]> = new Set();
 
   private getMap(path: MapKey[]) {
     return path.reduce<CustomMap<MapKey, any> | undefined>((map, key) => {
@@ -30,6 +31,7 @@ export class NestedMap<Value> {
 
     if (lastKey !== undefined && lastMap instanceof CustomMap) {
       lastMap.map.set(lastKey, value);
+      this.allValues.add([path, value]);
     }
 
     return this;
@@ -67,5 +69,9 @@ export class NestedMap<Value> {
     }
 
     return false;
+  }
+
+  forEach(cb: (value: Value, path: MapKey[]) => void) {
+    this.allValues.forEach(([path, value]) => cb(value, path));
   }
 }
