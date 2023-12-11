@@ -55,7 +55,9 @@ export class DeepSignal<Value extends object> {
     for (let i = 0; i < path.length; i++) {
       const joinedSubPath = path.slice(0, i + 1).join(".");
 
-      this.subscribers.get(joinedSubPath)?.forEach((effect) => (effect.isExplicitDependency(joinedSubPath, this) || i === path.length - 1) && effect.runCb(changes));
+      const set = this.subscribers.get(joinedSubPath);
+
+      if (set) [...set].forEach((effect) => (effect.isExplicitDependency(joinedSubPath, this) || i === path.length - 1) && effect.runCb(changes));
     }
   }
 
@@ -86,12 +88,14 @@ export class DeepEffect {
 
   constructor(cb: DeepEffectCb) {
     this.cb = (params) => {
+      [...this.deps.keys()].forEach((signal) => signal.unsubscribe(this));
+      this.deps.clear();
       currentDeepEffect = this;
       cb(params);
       currentDeepEffect = null;
     };
 
-    this.runCb([{ signalValue: undefined, path: [], newValue: undefined, oldValue: undefined }]);
+    this.runCb([]);
   }
 
   runCb(changes: DeepEffectCbChange[]) {
