@@ -542,6 +542,91 @@ test("Тестирование эффектов на массивах при и�
   ]);
 });
 
+test("Тестирование эффектов на массивах при различных операциях с ними", () => {
+  const signal = createDeepSignal({
+    array: [
+      {
+        id: 1,
+        age: 20,
+      },
+    ],
+  });
+  const ids: number[] = [];
+
+  const spy = vitest.fn<[DeepEffectCbChange[]]>(() => {
+    const ids = signal.array.map((user) => user.id);
+
+    for (const id of ids) {
+      ids.push(id);
+    }
+  });
+
+  createDeepEffect(spy);
+
+  expect(spy).toBeCalledTimes(1);
+  expect(spy.mock.calls[0]).toEqual([[]]);
+  expect(ids).toEqual([1]);
+
+  signal.array.push({
+    id: 2,
+    age: 22,
+  });
+  expect(spy).toBeCalledTimes(2);
+  expect(spy.mock.calls[1]).toEqual([
+    [
+      {
+        signalValue: signal,
+        path: ["array", "1"],
+        oldValue: undefined,
+        newValue: {
+          id: 2,
+          age: 22,
+        },
+      },
+    ],
+  ]);
+  expect(ids).toEqual([1, 2]);
+
+  signal.array[0].age = 20;
+  expect(spy).toBeCalledTimes(2);
+
+  const signal2 = createDeepSignal({
+    array: [
+      {
+        id: 1,
+        age: 20,
+      },
+    ],
+  });
+  const spy2 = vitest.fn<[DeepEffectCbChange[]]>(() => {
+    [...signal2.array];
+  });
+
+  createDeepEffect(spy2);
+
+  expect(spy2).toBeCalledTimes(1);
+  expect(spy2.mock.calls[0]).toEqual([[]]);
+
+  signal2.array.push({
+    id: 3,
+    age: 30,
+  });
+  expect(spy2).toBeCalledTimes(2);
+  expect(spy2.mock.calls[1]).toEqual([
+    [
+      {
+        signalValue: signal2,
+        path: ["array", "2"],
+        oldValue: undefined,
+        newValue: {
+          id: 3,
+          age: 30,
+        },
+      },
+    ],
+  ]);
+});
+
 test("Тестирование отмены глубоких эффектов", () => {
   const signal = createDeepSignal({
     count: 0,
