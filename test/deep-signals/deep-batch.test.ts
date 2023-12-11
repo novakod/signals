@@ -46,7 +46,7 @@ test("Тестирование функции deepBatch на нескольки�
   createDeepEffect(spy);
 
   expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.lastCall).toEqual([[{ signalValue: undefined, path: [], oldValue: undefined, newValue: undefined }]]);
+  expect(spy.mock.lastCall).toEqual([[]]);
 
   signal1.count++;
   signal1.count++;
