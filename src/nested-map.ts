@@ -86,4 +86,8 @@ export class NestedMap<Value> {
 
     pairs.forEach(([path, value]) => cb(value, path));
   }
+
+  clear() {
+    this.map.clear();
+  }
 }

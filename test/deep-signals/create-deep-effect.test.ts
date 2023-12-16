@@ -1,4 +1,4 @@
-import { DeepEffectCbChange, createDeepEffect, createDeepSignal } from "../../src/deep-signals";
+import { DeepEffectCbChange, createDeepEffect, createDeepSignal, deepBatch } from "../../src/deep-signals";
 import { test, expect, vitest, vi } from "vitest";
 
 test("Тестирование глубоких эффектов на функции, в которой не используются сигналы", () => {
@@ -551,12 +551,13 @@ test("Тестирование эффектов на массивах при р�
       },
     ],
   });
-  const ids: number[] = [];
+  let ids: number[] = [];
 
   const spy = vitest.fn<[DeepEffectCbChange[]]>(() => {
-    const ids = signal.array.map((user) => user.id);
+    const _ids = signal.array.map((user) => user.id);
 
-    for (const id of ids) {
+    ids = [];
+    for (const id of _ids) {
       ids.push(id);
     }
   });
@@ -598,8 +599,12 @@ test("Тестирование эффектов на массивах при р�
       },
     ],
   });
+  const signal3 = createDeepSignal({
+    array: [2],
+  });
+
   const spy2 = vitest.fn<[DeepEffectCbChange[]]>(() => {
-    [...signal2.array];
+    [...signal2.array.map((user) => user.id), ...signal3.array];
   });
 
   createDeepEffect(spy2);
@@ -616,12 +621,57 @@ test("Тестирование эффектов на массивах при р�
     [
       {
         signalValue: signal2,
-        path: ["array", "2"],
+        path: ["array", "1"],
         oldValue: undefined,
         newValue: {
           id: 3,
           age: 30,
         },
+      },
+    ],
+  ]);
+
+  signal3.array.push(3);
+  expect(spy2).toBeCalledTimes(3);
+  expect(spy2.mock.calls[2]).toEqual([
+    [
+      {
+        signalValue: signal3,
+        path: ["array", "1"],
+        oldValue: undefined,
+        newValue: 3,
+      },
+    ],
+  ]);
+
+  deepBatch(() => {
+    signal2.array = [];
+    signal3.array.push(4);
+  });
+
+  expect(spy2).toBeCalledTimes(4);
+  expect(spy2.mock.calls[3]).toEqual([
+    [
+      {
+        signalValue: signal2,
+        path: ["array"],
+        oldValue: [
+          {
+            id: 1,
+            age: 20,
+          },
+          {
+            id: 3,
+            age: 30,
+          },
+        ],
+        newValue: [],
+      },
+      {
+        signalValue: signal3,
+        path: ["array", "2"],
+        oldValue: undefined,
+        newValue: 4,
       },
     ],
   ]);
