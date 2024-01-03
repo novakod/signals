@@ -20,6 +20,7 @@ export type DeepComputeResultCb = (computeChanges: DeepComputeResultCbChange[], 
 
 let currentDeepEffect: DeepEffect | null = null;
 let currentBatch: Map<DeepEffect, Set<DeepEffectCbChange>> | null = null;
+let executedBatch: Map<DeepEffect, Set<DeepEffectCbChange>> | null = null;
 
 export class DeepSignal<Value extends object> {
   readonly subscribers: NestedMap<Set<DeepEffect>> = new NestedMap();
@@ -149,6 +150,8 @@ export class DeepEffect {
     [...this.deps.keys()].forEach((signal) => {
       signal.unsubscribe(this);
     });
+    currentBatch?.delete(this);
+    executedBatch?.delete(this);
     this.deps.clear();
     this.prevDep = null;
   }
@@ -170,9 +173,10 @@ export function deepUntrack<Value>(cb: () => Value): Value {
 export function deepBatch(cb: () => void) {
   currentBatch = new Map();
   cb();
-  const batch = currentBatch;
+  executedBatch = currentBatch;
   currentBatch = null;
-  for (const [effect, changes] of batch) effect.runCb([...changes]);
+  for (const [effect, changes] of executedBatch) effect.runCb([...changes]);
+  executedBatch = null;
 }
 
 export function deepCompute<Value extends object>(cb: DeepComputeCb<Value>, result?: DeepComputeResultCb): Value {
