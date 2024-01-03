@@ -101,12 +101,12 @@ export class DeepEffect {
   private cb: DeepEffectCb;
 
   constructor(cb: DeepEffectCb) {
-    this.cb = (params) => {
+    this.cb = (changes) => {
       [...this.deps.keys()].forEach((signal) => signal.unsubscribe(this));
       this.deps.clear();
       this.prevDep = null;
       currentDeepEffect = this;
-      cb(params);
+      cb(changes);
       currentDeepEffect = null;
     };
 
