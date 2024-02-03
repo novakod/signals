@@ -1,6 +1,6 @@
 {
   "name": "@novakod/signals",
-  "version": "0.13.0",
+  "version": "0.15.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/novakod/signals.git"
@@ -20,6 +20,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build-watch": "tsc && vite build --watch",
     "test": "vitest",
     "visualize-build": "vite-bundle-visualizer",
     "release": "npm publish --access public",
@@ -33,7 +34,7 @@
   },
   "peerDependencies": {
     "@novakod/deep-clone": "^1.0.0",
-    "@novakod/deep-proxy": "^0.6.2",
+    "@novakod/deep-proxy": "^0.10.0",
     "@novakod/is-pure-object": "^1.0.4"
   }
 }
