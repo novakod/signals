@@ -1,0 +1,19 @@
+{
+  "name": "benchmark",
+  "version": "1.0.0",
+  "description": "",
+  "main": "deep-signals.js",
+  "scripts": {
+    "dev": "bun run index.ts",
+    "test-deep-signals": "npx esbuild test/deep-signals/index.ts --bundle --outfile=dist/deep-signals.js && node dist/deep-signals.js",
+    "test-preact-signals": "npx esbuild test/preact-signals/index.ts --bundle --outfile=dist/preact-signals.js && node dist/preact-signals.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@preact/signals-core": "^1.5.1",
+    "@types/benchmark": "^2.1.5",
+    "benchmark": "^2.1.4"
+  }
+}
