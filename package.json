@@ -34,7 +34,7 @@
   },
   "peerDependencies": {
     "@novakod/deep-clone": "^1.0.0",
-    "@novakod/deep-proxy": "^0.10.0",
+    "@novakod/deep-proxy": "^0.11.0",
     "@novakod/is-pure-object": "^1.0.4"
   }
 }
