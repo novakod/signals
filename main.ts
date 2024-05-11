@@ -1,28 +1,21 @@
-import { DeepEffect, DeepSignal, createDeepEffect, createDeepSignal, deepUntrack } from "./src/deep-signals";
+import { createDeepEffect, createDeepSignal } from "./src/new2/deep-signals";
 
-// debugger;
-const signal = new DeepSignal({
+const signal = createDeepSignal({
+  nested: {
+    count: 0,
+  },
   array: [
     {
       id: 1,
-      age: 20,
-    },
-    {
-      id: 2,
-      age: 22,
     },
   ],
 });
 
-const effect = new DeepEffect((changes) => {
-  console.log("effect: ", signal.proxifiedValue.array, changes);
+createDeepEffect(() => {
+  signal.array;
 });
-
-signal.proxifiedValue.array[0].age = 21;
-
-signal.proxifiedValue.array[0] = {
-  id: 0,
-  age: 21,
-};
-
-window["signal"] = signal;
+debugger;
+signal.array[0].id = 2;
+signal.array.push({
+  id: 3,
+});

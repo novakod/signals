@@ -1,702 +1,366 @@
-import { DeepEffectCbChange, createDeepEffect, createDeepSignal, deepBatch } from "../../src/deep-signals";
-import { test, expect, vitest, vi } from "vitest";
+import { test, expect, vitest } from "vitest";
+import { createDeepSignal, createDeepEffect, DeepEffectCb } from "../../src/new2/deep-signals";
 
-test("Тестирование глубоких эффектов на функции, в которой не используются сигналы", () => {
+test("Если в эффекте получить данные из сигнала на один уровень в глубину, а затем установить данные по выбранному ключу, то эффект вызывается", () => {
   const signal = createDeepSignal({
     count: 0,
   });
 
-  const spy = vitest.fn<[DeepEffectCbChange[]]>();
-
-  createDeepEffect(spy);
-
-  expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.calls[0]).toEqual([[]]);
-
-  signal.count++;
-
-  expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.calls[0]).toEqual([[]]);
-});
-
-test("Тестирование глубоких эффектов на функции, в которой используются один сигнал", () => {
-  const signal = createDeepSignal({
-    count: 0,
-  });
-
-  const spy = vitest.fn<[DeepEffectCbChange[]]>(() => {
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
     signal.count;
   });
 
-  createDeepEffect(spy);
+  createDeepEffect(spyFn);
 
-  expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.calls[0]).toEqual([[]]);
+  expect(spyFn).toBeCalledTimes(1);
 
-  signal.count++;
-  expect(spy).toBeCalledTimes(2);
-  expect(spy.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["count"],
-        oldValue: 0,
-        newValue: 1,
-      },
-    ],
-  ]);
+  signal.count += 1;
+  expect(spyFn).toBeCalledTimes(2);
 });
 
-test("Тестирование глубоких эффектов на функции, в которой используется несколько сигналов", () => {
-  let dummy;
-  const signal1 = createDeepSignal({
-    count: 0,
-  });
-  const signal2 = createDeepSignal({
-    count: 0,
-  });
-
-  const spy = vitest.fn<[DeepEffectCbChange[]]>(() => {
-    dummy = signal1.count + signal2.count;
-  });
-
-  createDeepEffect(spy);
-
-  expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.calls[0]).toEqual([[]]);
-  expect(dummy).toBe(0);
-
-  signal1.count++;
-  expect(spy).toBeCalledTimes(2);
-  expect(spy.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal1,
-        path: ["count"],
-        oldValue: 0,
-        newValue: 1,
-      },
-    ],
-  ]);
-  expect(dummy).toBe(1);
-
-  signal2.count++;
-  expect(spy).toBeCalledTimes(3);
-  expect(spy.mock.calls[2]).toEqual([
-    [
-      {
-        signalValue: signal2,
-        path: ["count"],
-        oldValue: 0,
-        newValue: 1,
-      },
-    ],
-  ]);
-  expect(dummy).toBe(2);
-});
-
-test("Тестирование нескольких эффектов, подписанных на один сигнал", () => {
+test("Если в эффекте получить данные из сигнала на пять уровней в глубину, а затем установить данные по выбранному ключу, то эффект вызовется один раз", () => {
   const signal = createDeepSignal({
-    count: 0,
-  });
-
-  const spy1 = vitest.fn<[DeepEffectCbChange[]]>(() => {
-    signal.count;
-  });
-  const spy2 = vitest.fn<[DeepEffectCbChange[]]>(() => {
-    signal.count;
-  });
-
-  createDeepEffect(spy1);
-  createDeepEffect(spy2);
-
-  expect(spy1).toBeCalledTimes(1);
-  expect(spy1.mock.calls[0]).toEqual([[]]);
-  expect(spy2).toBeCalledTimes(1);
-  expect(spy2.mock.calls[0]).toEqual([[]]);
-
-  signal.count++;
-  expect(spy1).toBeCalledTimes(2);
-  expect(spy1.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["count"],
-        oldValue: 0,
-        newValue: 1,
+    nested: {
+      nested: {
+        nested: {
+          nested: {
+            count: 0,
+          },
+        },
       },
-    ],
-  ]);
-  expect(spy2).toBeCalledTimes(2);
-  expect(spy1.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["count"],
-        oldValue: 0,
-        newValue: 1,
-      },
-    ],
-  ]);
-});
-
-test("Тестирование глубоких эффектов, с использованием цепочки вызовов функций", () => {
-  let dummy;
-  const signal = createDeepSignal({
-    count: 0,
-  });
-
-  const getSignalValue = () => signal.count;
-
-  const spy = vitest.fn<[DeepEffectCbChange[]]>(() => {
-    dummy = getSignalValue();
-  });
-
-  createDeepEffect(spy);
-
-  expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.calls[0]).toEqual([[]]);
-  expect(dummy).toBe(0);
-
-  signal.count++;
-  expect(spy).toBeCalledTimes(2);
-  expect(spy.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["count"],
-        oldValue: 0,
-        newValue: 1,
-      },
-    ],
-  ]);
-  expect(dummy).toBe(1);
-
-  signal.count++;
-  expect(spy).toBeCalledTimes(3);
-  expect(spy.mock.calls[2]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["count"],
-        oldValue: 1,
-        newValue: 2,
-      },
-    ],
-  ]);
-  expect(dummy).toBe(2);
-});
-
-test("Тестирование обнаружения зависимостей, до которых нельзя дойти при первом запуске функции", () => {
-  const signal1 = createDeepSignal({
-    count: 0,
-  });
-  const signal2 = createDeepSignal({
-    count: 0,
-  });
-
-  const spy1 = vitest.fn<[DeepEffectCbChange[]]>();
-  const spy2 = vitest.fn<[DeepEffectCbChange[]]>();
-
-  createDeepEffect((changes) => {
-    if (signal1.count < 2) {
-      spy1(changes);
-    } else if (signal2.count >= 0) {
-      spy2(changes);
-    }
-  });
-
-  expect(spy1).toBeCalledTimes(1);
-  expect(spy1.mock.calls[0]).toEqual([[]]);
-  expect(spy2).toBeCalledTimes(0);
-  expect(spy2.mock.calls).toEqual([]);
-
-  signal1.count = 2;
-  expect(spy1).toBeCalledTimes(1);
-  expect(spy2).toBeCalledTimes(1);
-  expect(spy2.mock.calls[0]).toEqual([
-    [
-      {
-        signalValue: signal1,
-        path: ["count"],
-        oldValue: 0,
-        newValue: 2,
-      },
-    ],
-  ]);
-
-  signal2.count = 5;
-  expect(spy1).toBeCalledTimes(1);
-  expect(spy2).toBeCalledTimes(2);
-  expect(spy2.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal2,
-        path: ["count"],
-        oldValue: 0,
-        newValue: 5,
-      },
-    ],
-  ]);
-});
-
-test("Тестирование эффекта, в котором изменение сигнала неактивной ветки не приводит к вызову эффекта", () => {
-  let dummy;
-  const signal1 = createDeepSignal({
-    field: {
-      value: true,
-    },
-  });
-  const signal2 = createDeepSignal({
-    field: {
-      value: "value",
     },
   });
 
-  const spy = vitest.fn<[DeepEffectCbChange[]]>(() => {
-    dummy = signal1.field.value ? signal2.field.value : "other";
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.nested.nested.nested.nested.count;
   });
 
-  createDeepEffect(spy);
+  createDeepEffect(spyFn);
 
-  expect(dummy).toBe("value");
-  expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.calls[0]).toEqual([[]]);
+  expect(spyFn).toBeCalledTimes(1);
 
-  signal1.field.value = false;
-  expect(dummy).toBe("other");
-  expect(spy).toBeCalledTimes(2);
-  expect(spy.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal1,
-        path: ["field", "value"],
-        oldValue: true,
-        newValue: false,
-      },
-    ],
-  ]);
-
-  signal2.field.value = "changed";
-  expect(dummy).toBe("other");
-  expect(spy).toBeCalledTimes(2);
+  signal.nested.nested.nested.nested.count += 1;
+  expect(spyFn).toBeCalledTimes(2);
 });
 
-test("Тестирование глубокого эффекта, который не должен вызываться если в глубокий сигнал устанавливается такое же значение", () => {
-  let dummy;
+test("Если в эффекте получить данные из сигнала, а затем установить для выбранного ключа то же значение, что и до(для непримитивных данных под тем же значением имеется ввиду тот же адрес в памяти), то эффект не вызовется", () => {
   const signal = createDeepSignal({
-    value: 0,
+    count: 0,
+    nested: {
+      count: 0,
+    },
   });
 
-  const spy = vitest.fn<[DeepEffectCbChange[]]>(() => {
-    dummy = signal.value;
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.count;
   });
 
-  createDeepEffect(spy);
+  createDeepEffect(spyFn);
+  expect(spyFn).toBeCalledTimes(1);
+  signal.count = 0;
+  expect(spyFn).toBeCalledTimes(1);
 
-  expect(dummy).toBe(0);
-  expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.calls[0]).toEqual([[]]);
+  const spyFn2 = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.nested.count;
+  });
 
-  signal.value = 2;
-  expect(dummy).toBe(2);
-  expect(spy).toBeCalledTimes(2);
-  expect(spy.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["value"],
-        oldValue: 0,
-        newValue: 2,
-      },
-    ],
-  ]);
-
-  signal.value = 2;
-  expect(dummy).toBe(2);
-  expect(spy).toBeCalledTimes(2);
+  createDeepEffect(spyFn2);
+  expect(spyFn2).toBeCalledTimes(1);
+  signal.nested.count = 0;
+  expect(spyFn2).toBeCalledTimes(1);
 });
 
-test("Тестирование глубоких сигналов на массивах", () => {
+test("Если в эффекте получить данные из сигнала на один уроверь в глубину, а затем установить данные по дочернему пути для использованного в сигнале пути, то эффект вызывается", () => {
   const signal = createDeepSignal({
+    nested: {
+      count: 0,
+    },
     array: [
       {
         id: 1,
-        age: 20,
-      },
-      {
-        id: 2,
-        age: 22,
       },
     ],
   });
 
-  const spy = vitest.fn<[DeepEffectCbChange[]]>(() => {
-    signal.array[0].age;
-  });
-
-  createDeepEffect(spy);
-
-  expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.calls[0]).toEqual([[]]);
-
-  signal.array[0].age = 21;
-  expect(spy).toBeCalledTimes(2);
-  expect(spy.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["array", "0", "age"],
-        oldValue: 20,
-        newValue: 21,
-      },
-    ],
-  ]);
-
-  signal.array[0].id = 0;
-  expect(spy).toBeCalledTimes(2);
-
-  signal.array.push({
-    id: 3,
-    age: 23,
-  });
-  expect(spy).toBeCalledTimes(2);
-});
-
-test("Тестирование эффектов на массивах при изменении родительских данных отсеживаемой части сигнала", () => {
-  const signal = createDeepSignal({
-    nested: {
-      array: [
-        {
-          id: 1,
-          age: 20,
-        },
-        {
-          id: 2,
-          age: 22,
-        },
-      ],
-    },
-  });
-
-  const spy = vitest.fn<[DeepEffectCbChange[]]>(() => {
-    signal.nested.array[0]?.age;
-  });
-
-  createDeepEffect(spy);
-
-  expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.calls[0]).toEqual([[]]);
-
-  signal.nested.array[0] = {
-    id: 1,
-    age: 23,
-  };
-  expect(spy).toBeCalledTimes(2);
-  expect(spy.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["nested", "array", "0"],
-        oldValue: {
-          id: 1,
-          age: 20,
-        },
-        newValue: {
-          id: 1,
-          age: 23,
-        },
-      },
-    ],
-  ]);
-
-  signal.nested.array = [];
-  expect(spy).toBeCalledTimes(3);
-  expect(spy.mock.calls[2]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["nested", "array"],
-        oldValue: [
-          {
-            id: 1,
-            age: 23,
-          },
-          {
-            id: 2,
-            age: 22,
-          },
-        ],
-        newValue: [],
-      },
-    ],
-  ]);
-
-  signal.nested = {
-    array: [],
-  };
-  expect(spy).toBeCalledTimes(4);
-  expect(spy.mock.calls[3]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["nested"],
-        oldValue: {
-          array: [],
-        },
-        newValue: {
-          array: [],
-        },
-      },
-    ],
-  ]);
-});
-
-test("Тестирование эффектов на массивах при изменении дочерних данных отсеживаемой части сигнала", () => {
-  const signal = createDeepSignal({
-    nested: {
-      array: [
-        {
-          id: 1,
-          age: 20,
-        },
-        {
-          id: 2,
-          age: 22,
-        },
-      ],
-    },
-  });
-
-  const spy = vitest.fn<[DeepEffectCbChange[]]>(() => {
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
     signal.nested;
   });
 
-  createDeepEffect(spy);
+  createDeepEffect(spyFn);
+  expect(spyFn).toBeCalledTimes(1);
+  signal.nested.count += 1;
+  expect(spyFn).toBeCalledTimes(2);
 
-  expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.calls[0]).toEqual([[]]);
-
-  signal.nested.array.push({
-    id: 3,
-    age: 30,
+  const spyFn2 = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.array;
   });
-  expect(spy).toBeCalledTimes(2);
-  expect(spy.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["nested", "array", "2"],
-        oldValue: undefined,
-        newValue: {
-          id: 3,
-          age: 30,
-        },
-      },
-    ],
-  ]);
 
-  signal.nested.array[1].age = 55;
-  expect(spy).toBeCalledTimes(3);
-  expect(spy.mock.calls[2]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["nested", "array", "1", "age"],
-        oldValue: 22,
-        newValue: 55,
-      },
-    ],
-  ]);
-
-  signal.nested = {
-    array: [],
-  };
-  expect(spy).toBeCalledTimes(4);
-  expect(spy.mock.calls[3]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["nested"],
-        oldValue: {
-          array: [
-            {
-              id: 1,
-              age: 20,
-            },
-            {
-              id: 2,
-              age: 55,
-            },
-            {
-              id: 3,
-              age: 30,
-            },
-          ],
-        },
-        newValue: {
-          array: [],
-        },
-      },
-    ],
-  ]);
+  createDeepEffect(spyFn2);
+  expect(spyFn2).toBeCalledTimes(1);
+  signal.array[0].id = 2;
+  expect(spyFn2).toBeCalledTimes(2);
+  signal.array.push({
+    id: 3,
+  });
+  expect(spyFn2).toBeCalledTimes(3);
 });
 
-test("Тестирование эффектов на массивах при различных операциях с ними", () => {
+test("Если в эффект получить данные из сигнала на три уровня в глубину, а затем установить данные по родительскому пути для использованного в сигнале пути, то эффект вызывается", () => {
   const signal = createDeepSignal({
-    array: [
-      {
-        id: 1,
-        age: 20,
+    nested: {
+      count: 0,
+    },
+  });
+
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.nested.count;
+  });
+
+  createDeepEffect(spyFn);
+  expect(spyFn).toBeCalledTimes(1);
+  signal.nested = {
+    count: 1,
+  };
+  expect(spyFn).toBeCalledTimes(2);
+});
+
+test("Если в эффект получить данные из сигнала по пути на один уровень в глубину, а затем отдельно получить данные по пути, которых начинается с предыдущего, но идёт на три уровня в глубину, то эффект реагирует только на изменения по первому пути или изменения дочерних данных первого пути", () => {
+  const signal = createDeepSignal({
+    nested: {
+      nested: {
+        count: 0,
       },
-    ],
-  });
-  let ids: number[] = [];
-
-  const spy = vitest.fn<[DeepEffectCbChange[]]>(() => {
-    const _ids = signal.array.map((user) => user.id);
-
-    ids = [];
-    for (const id of _ids) {
-      ids.push(id);
-    }
+    },
   });
 
-  createDeepEffect(spy);
-
-  expect(spy).toBeCalledTimes(1);
-  expect(spy.mock.calls[0]).toEqual([[]]);
-  expect(ids).toEqual([1]);
-
-  signal.array.push({
-    id: 2,
-    age: 22,
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.nested;
+    signal.nested.nested.count;
   });
-  expect(spy).toBeCalledTimes(2);
-  expect(spy.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal,
-        path: ["array", "1"],
-        oldValue: undefined,
-        newValue: {
-          id: 2,
-          age: 22,
-        },
-      },
-    ],
-  ]);
-  expect(ids).toEqual([1, 2]);
 
-  signal.array[0].age = 20;
-  expect(spy).toBeCalledTimes(2);
+  createDeepEffect(spyFn);
+
+  expect(spyFn).toBeCalledTimes(1);
+  signal.nested.nested.count += 1;
+  expect(spyFn).toBeCalledTimes(2);
+
+  signal.nested.nested = {
+    count: 2,
+  };
+  expect(spyFn).toBeCalledTimes(3);
+});
+
+test("Если в эффекте получить данные из двух сигналов, то, при установке данных для любого из сигналов для выбранных ключей, эффект вызывается", () => {
+  const signal1 = createDeepSignal({
+    count: 0,
+  });
 
   const signal2 = createDeepSignal({
-    array: [
-      {
-        id: 1,
-        age: 20,
-      },
-    ],
-  });
-  const signal3 = createDeepSignal({
-    array: [2],
+    count: 0,
   });
 
-  const spy2 = vitest.fn<[DeepEffectCbChange[]]>(() => {
-    [...signal2.array.map((user) => user.id), ...signal3.array];
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal1.count;
+    signal2.count;
   });
 
-  createDeepEffect(spy2);
+  createDeepEffect(spyFn);
 
-  expect(spy2).toBeCalledTimes(1);
-  expect(spy2.mock.calls[0]).toEqual([[]]);
+  expect(spyFn).toBeCalledTimes(1);
+  signal1.count += 1;
+  expect(spyFn).toBeCalledTimes(2);
 
-  signal2.array.push({
-    id: 3,
-    age: 30,
-  });
-  expect(spy2).toBeCalledTimes(2);
-  expect(spy2.mock.calls[1]).toEqual([
-    [
-      {
-        signalValue: signal2,
-        path: ["array", "1"],
-        oldValue: undefined,
-        newValue: {
-          id: 3,
-          age: 30,
-        },
-      },
-    ],
-  ]);
-
-  signal3.array.push(3);
-  expect(spy2).toBeCalledTimes(3);
-  expect(spy2.mock.calls[2]).toEqual([
-    [
-      {
-        signalValue: signal3,
-        path: ["array", "1"],
-        oldValue: undefined,
-        newValue: 3,
-      },
-    ],
-  ]);
-
-  deepBatch(() => {
-    signal2.array = [];
-    signal3.array.push(4);
-  });
-
-  expect(spy2).toBeCalledTimes(4);
-  expect(spy2.mock.calls[3]).toEqual([
-    [
-      {
-        signalValue: signal2,
-        path: ["array"],
-        oldValue: [
-          {
-            id: 1,
-            age: 20,
-          },
-          {
-            id: 3,
-            age: 30,
-          },
-        ],
-        newValue: [],
-      },
-      {
-        signalValue: signal3,
-        path: ["array", "2"],
-        oldValue: undefined,
-        newValue: 4,
-      },
-    ],
-  ]);
+  signal2.count += 1;
+  expect(spyFn).toBeCalledTimes(3);
 });
 
-test("Тестирование отмены глубоких эффектов", () => {
+test(" Если несколько эффектов подписаны на один сигнал, то, при установке данных для выбранного ключа, все эффекты будут вызваны", () => {
   const signal = createDeepSignal({
     count: 0,
   });
 
-  const spy = vitest.fn(() => {
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
     signal.count;
   });
 
-  const effect = createDeepEffect(spy);
+  createDeepEffect(spyFn);
+  createDeepEffect(spyFn);
+  createDeepEffect(spyFn);
 
-  expect(spy).toBeCalledTimes(1);
+  expect(spyFn).toBeCalledTimes(3);
 
-  signal.count = 1;
+  signal.count += 1;
+  expect(spyFn).toBeCalledTimes(6);
+});
 
-  expect(spy).toBeCalledTimes(2);
+test("Если в эффекте вызывается функция, которая внутри использует данные из сигнала, то при установке данных для выбранного ключа используемого сигнала, эффект вызывается", () => {
+  const signal = createDeepSignal({
+    count: 0,
+  });
 
-  effect.dispose();
+  const getCount = () => signal.count;
 
-  signal.count = 2;
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    getCount();
+  });
 
-  expect(spy).toBeCalledTimes(2);
+  createDeepEffect(spyFn);
+
+  expect(spyFn).toBeCalledTimes(1);
+  signal.count += 1;
+  expect(spyFn).toBeCalledTimes(2);
+});
+
+test("Если в эффекте используется несколько сигналов или используется несколько разных путей одного сигнала, до некоторых из которых нельзя дойти при вызове эффекта, то эффект подписывается только на те сигналы или пути, до которых дошёл предыдущий вызов эффекта", () => {
+  const signal = createDeepSignal({
+    count: 0,
+    firstKey: "first",
+    secondKey: "second",
+  });
+
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    if (signal.count > 2) {
+      signal.firstKey;
+    } else {
+      signal.secondKey;
+    }
+  });
+
+  createDeepEffect(spyFn);
+
+  expect(spyFn).toBeCalledTimes(1);
+  signal.count += 1;
+  expect(spyFn).toBeCalledTimes(2);
+  signal.firstKey = "first2";
+  expect(spyFn).toBeCalledTimes(2);
+  signal.secondKey = "second2";
+  expect(spyFn).toBeCalledTimes(3);
+  signal.count = 3;
+  expect(spyFn).toBeCalledTimes(4);
+  signal.firstKey = "first3";
+  expect(spyFn).toBeCalledTimes(5);
+  signal.secondKey = "second3";
+  expect(spyFn).toBeCalledTimes(5);
+});
+
+test("сли два эффекта подписаны на один сигнал по двум разным путям на несколько уровней в глубину, где первые несколько ключей путей одинаковы, то, при установке данных по одному из путей, эффект, который подписан на другой путь, не вызывается", () => {
+  const signal = createDeepSignal({
+    nested: {
+      nested: {
+        nested: {
+          count: 0,
+        },
+        firstKey: "first",
+      },
+    },
+  });
+
+  const spyFn1 = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.nested.nested.nested.count;
+  });
+  const spyFn2 = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.nested.nested.firstKey;
+  });
+
+  createDeepEffect(spyFn1);
+  createDeepEffect(spyFn2);
+
+  expect(spyFn1).toBeCalledTimes(1);
+  expect(spyFn2).toBeCalledTimes(1);
+
+  signal.nested.nested.nested.count = 1;
+  expect(spyFn1).toBeCalledTimes(2);
+  expect(spyFn2).toBeCalledTimes(1);
+
+  signal.nested.nested.nested = {
+    count: 2,
+  };
+  expect(spyFn1).toBeCalledTimes(3);
+  expect(spyFn2).toBeCalledTimes(1);
+
+  signal.nested.nested = {
+    nested: {
+      count: 3,
+    },
+    firstKey: "first2",
+  };
+  expect(spyFn1).toBeCalledTimes(4);
+  expect(spyFn2).toBeCalledTimes(2);
+
+  signal.nested.nested.firstKey = "first3";
+  expect(spyFn1).toBeCalledTimes(4);
+  expect(spyFn2).toBeCalledTimes(3);
+});
+
+test("Если в эффекте получить данные в виде массива из сигнала на один уровень в глубину, а затем добавить в массив новый элемент, то эффект вызовется", () => {
+  const signal = createDeepSignal({
+    array: [
+      {
+        id: 1,
+      },
+    ],
+  });
+
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.array;
+  });
+
+  createDeepEffect(spyFn);
+
+  expect(spyFn).toBeCalledTimes(1);
+  signal.array.push({
+    id: 2,
+  });
+  expect(spyFn).toBeCalledTimes(2);
+});
+
+test("Если у данных, которые используются в эффекте, вызывается метод, то эффект подписывается на путь до используемых данных", () => {
+  class Figure {
+    width = 0;
+
+    getSize() {
+      return this.width;
+    }
+  }
+
+  const signal = createDeepSignal({
+    date: new Date(),
+    figure: new Figure(),
+    array: [
+      {
+        id: 1,
+      },
+    ],
+  });
+
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.date.getTime();
+  });
+
+  createDeepEffect(spyFn);
+  expect(spyFn).toBeCalledTimes(1);
+  signal.date = new Date();
+  expect(spyFn).toBeCalledTimes(2);
+
+  const spyFn2 = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.figure.getSize();
+  });
+
+  createDeepEffect(spyFn2);
+  expect(spyFn2).toBeCalledTimes(1);
+  signal.figure.width = 10;
+  expect(spyFn2).toBeCalledTimes(2);
+
+  const spyFn3 = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.array.map(() => {});
+  });
+
+  createDeepEffect(spyFn3);
+  expect(spyFn3).toBeCalledTimes(1);
+  signal.array.push({
+    id: 2,
+  });
+  expect(spyFn3).toBeCalledTimes(2);
+  signal.array[1].id = 3;
+  expect(spyFn3).toBeCalledTimes(3);
 });
