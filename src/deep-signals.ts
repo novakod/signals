@@ -1,111 +1,95 @@
-import { createDeepProxy, isDeepProxy, isProxifiedData, unproxify } from "@novakod/deep-proxy";
-import { Diff, applyObjDiffs, findObjDiffs } from "./utils";
-import { deepClone } from "@novakod/deep-clone";
-import { NestedMap } from "./nested-map";
+import { createDeepProxy } from "@novakod/deep-proxy";
+import { deepGet, joinPath, startsWith } from "./utils";
 
+type ProxifiedValue = Record<string, any>;
 export type DeepEffectCbChange = {
   signalValue: unknown;
   path: (string | symbol)[];
   oldValue: unknown;
   newValue: unknown;
 };
-
 export type DeepEffectCb = (changes: DeepEffectCbChange[]) => void;
-
-export type DeepComputeResultCbChange = Diff;
-
-export type DeepComputeCb<Value extends object> = (changes: DeepEffectCbChange[]) => Value;
-
-export type DeepComputeResultCb = (computeChanges: DeepComputeResultCbChange[], effectChanges: DeepEffectCbChange[]) => void;
+type SignalSubscriptions = Map<DeepEffect, Map<string, (string | symbol)[]>>;
 
 let currentDeepEffect: DeepEffect | null = null;
+let subscriptions: Map<DeepSignal<ProxifiedValue>, SignalSubscriptions> = new Map();
 let currentBatch: Map<DeepEffect, Set<DeepEffectCbChange>> | null = null;
 let executedBatch: Map<DeepEffect, Set<DeepEffectCbChange>> | null = null;
 
-export class DeepSignal<Value extends object> {
-  readonly subscribers: NestedMap<Set<DeepEffect>> = new NestedMap();
-  readonly proxifiedValue: Value;
-
+export class DeepSignal<Value extends ProxifiedValue> {
+  proxifiedValue: Value;
   constructor(value: Value) {
-    const signal = this;
-    let isPrevented = false;
-    let isMapClear = true;
-    let prevPathsMap = new NestedMap();
+    const thisSignal = this;
+
+    const thisSignalSubscriptions: SignalSubscriptions = new Map();
+    subscriptions.set(this, thisSignalSubscriptions);
+
     this.proxifiedValue = createDeepProxy(value, {
       get({ target, key, path, reciever }) {
-        const gotValue = Reflect.get(target, key, reciever);
+        if (currentDeepEffect && Object.hasOwn(target, key)) {
+          const effectSubscriptions = thisSignalSubscriptions.get(currentDeepEffect);
 
-        if (currentDeepEffect) {
-          if (isMapClear || prevPathsMap.has(path.slice(0, -1))) {
-            if (!Object.hasOwn(target, key) && !isPrevented) isPrevented = true;
+          const prevJoinedPath = joinPath(path.slice(0, -1));
+          const joinedPath = prevJoinedPath ? `${prevJoinedPath}.${path[path.length - 1].toString()}` : path[path.length - 1].toString();
+          if (effectSubscriptions) {
+            effectSubscriptions.delete(prevJoinedPath);
+            effectSubscriptions.set(joinedPath, path);
           } else {
-            isPrevented = false;
-            prevPathsMap.clear();
-          }
-          prevPathsMap.set(path, true);
-          isMapClear = false;
-
-          if (!isPrevented) {
-            signal.subscribe(path, currentDeepEffect);
-            currentDeepEffect.addDependency(path, signal);
+            thisSignalSubscriptions.set(currentDeepEffect, new Map([[joinedPath, path]]));
           }
         }
 
-        return gotValue;
+        return Reflect.get(target, key, reciever);
       },
-      set({ target, key, path, value, reciever }) {
-        const oldValue = Reflect.get(target, key, reciever);
+      set({ target, rootTarget, key, path, value, reciever }) {
+        const oldValues: Map<DeepEffect, Map<string, any>> = new Map();
 
-        if (Object.is(oldValue, value)) return true;
+        for (const [effect, paths] of thisSignalSubscriptions.entries()) {
+          const pathsMap: Map<string, any> = new Map();
+          for (const [joinedPath, path] of paths.entries()) {
+            const value = deepGet(rootTarget, path);
 
-        const setResult = Reflect.set(target, key, value, reciever);
+            pathsMap.set(joinedPath, value);
+          }
+          oldValues.set(effect, pathsMap);
+        }
 
-        if (setResult) signal.runSubscribers(path, [{ signalValue: signal.proxifiedValue, path, oldValue, newValue: value }]);
+        const currentPathOldValue = Reflect.get(target, key, reciever);
+        const isSet = Reflect.set(target, key, value, reciever);
+        const currentPathNewValue = Reflect.get(target, key, reciever);
 
-        return setResult;
+        if (isSet) {
+          const setJoinedPath = joinPath(path);
+
+          for (const [effect, paths] of thisSignalSubscriptions.entries()) {
+            if (effect.isDisposed) {
+              thisSignalSubscriptions.delete(effect);
+              continue;
+            }
+
+            for (const [joinedPath, path] of paths.entries()) {
+              const value = deepGet(rootTarget, path);
+
+              if (oldValues.get(effect)?.get(joinedPath) !== value || (currentPathOldValue !== currentPathNewValue && startsWith(setJoinedPath, joinedPath))) {
+                thisSignalSubscriptions.set(effect, new Map());
+                effect.runCb([{ signalValue: thisSignal.proxifiedValue, path, oldValue: currentPathOldValue, newValue: currentPathNewValue }]);
+              }
+            }
+          }
+        }
+
+        return isSet;
       },
     });
   }
-
-  runSubscribers(path: DeepEffectCbChange["path"], changes: DeepEffectCbChange[]) {
-    for (let i = 0; i < path.length; i++) {
-      const subPath = path.slice(0, i + 1);
-
-      const set = this.subscribers.get(subPath);
-
-      if (set) [...set].forEach((effect) => (effect.isExplicitDependency(subPath, this) || i === path.length - 1) && effect.runCb(changes));
-    }
-  }
-
-  subscribe(path: DeepEffectCbChange["path"], effect: DeepEffect) {
-    if (!this.subscribers.has(path)) {
-      this.subscribers.set(path, new Set());
-    }
-
-    this.subscribers.get(path)!.add(effect);
-  }
-
-  unsubscribe(effect: DeepEffect) {
-    this.subscribers.forEach((set) => set.delete(effect));
-  }
-}
-
-export function createDeepSignal<Value extends object>(value: Value): Value {
-  const signal = new DeepSignal(value);
-
-  return signal.proxifiedValue;
 }
 
 export class DeepEffect {
-  private deps: Map<DeepSignal<any>, NestedMap<boolean>> = new Map();
-  private prevDep: [DeepEffectCbChange["path"], DeepSignal<any>] | null = null;
-  private cb: DeepEffectCb;
+  cb: DeepEffectCb;
+  private _isDisposed = false;
 
   constructor(cb: DeepEffectCb) {
     this.cb = (changes) => {
-      [...this.deps.keys()].forEach((signal) => signal.unsubscribe(this));
-      this.deps.clear();
-      this.prevDep = null;
       currentDeepEffect = this;
       cb(changes);
       currentDeepEffect = null;
@@ -114,47 +98,24 @@ export class DeepEffect {
     this.runCb([]);
   }
 
+  get isDisposed() {
+    return this._isDisposed;
+  }
+
   runCb(changes: DeepEffectCbChange[]) {
     if (currentBatch) {
       currentBatch.set(this, new Set(currentBatch.has(this) ? [...currentBatch.get(this)!, ...changes] : changes));
     } else this.cb(changes);
   }
 
-  isExplicitDependency(path: DeepEffectCbChange["path"], signal: DeepSignal<any>) {
-    return this.deps.get(signal)?.get(path);
-  }
-
-  addDependency(path: DeepEffectCbChange["path"], signal: DeepSignal<any>) {
-    if (!this.deps.has(signal)) {
-      this.deps.set(signal, new NestedMap());
-    }
-
-    this.deps.get(signal)!.set(path, true);
-
-    if (this.prevDep) {
-      const [prevPath, prevSignal] = this.prevDep;
-
-      if (path.slice(0, -1).every((key, i) => key === prevPath[i]) && prevSignal === signal) {
-        this.deps.get(signal)!.set(prevPath, false);
-      }
-    }
-
-    this.prevDep = [path, signal];
-  }
-
-  removeDependency(signal: DeepSignal<any>) {
-    this.deps.delete(signal);
-  }
-
   dispose() {
-    [...this.deps.keys()].forEach((signal) => {
-      signal.unsubscribe(this);
-    });
-    currentBatch?.delete(this);
-    executedBatch?.delete(this);
-    this.deps.clear();
-    this.prevDep = null;
+    this._isDisposed = true;
   }
+}
+
+export function createDeepSignal<Value extends ProxifiedValue>(value: Value): Value {
+  const signal = new DeepSignal(value);
+  return signal.proxifiedValue;
 }
 
 export function createDeepEffect(cb: DeepEffectCb) {
@@ -177,26 +138,4 @@ export function deepBatch(cb: () => void) {
   currentBatch = null;
   for (const [effect, changes] of executedBatch) effect.runCb([...changes]);
   executedBatch = null;
-}
-
-export function deepCompute<Value extends object>(cb: DeepComputeCb<Value>, result?: DeepComputeResultCb): Value {
-  let value: Value = {} as Value;
-  let signal: Value = {} as Value;
-  createDeepEffect((changes) => {
-    let newValue = cb(changes);
-
-    if (isProxifiedData(newValue) && isDeepProxy(newValue)) newValue = unproxify(newValue);
-
-    deepUntrack(() => {
-      const diffs = findObjDiffs(value, newValue);
-      deepBatch(() => {
-        applyObjDiffs(signal, diffs);
-      });
-      value = deepClone(newValue);
-      result?.(diffs, changes);
-    });
-  });
-  signal = createDeepSignal(value);
-
-  return signal;
 }

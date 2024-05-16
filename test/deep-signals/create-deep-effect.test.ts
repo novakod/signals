@@ -1,5 +1,5 @@
 import { test, expect, vitest } from "vitest";
-import { createDeepSignal, createDeepEffect, DeepEffectCb } from "../../src/new2/deep-signals";
+import { createDeepSignal, createDeepEffect, DeepEffectCb } from "../../src/deep-signals";
 
 test("Если в эффекте получить данные из сигнала на один уровень в глубину, а затем установить данные по выбранному ключу, то эффект вызывается", () => {
   const signal = createDeepSignal({

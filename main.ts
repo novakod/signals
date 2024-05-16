@@ -1,4 +1,4 @@
-import { createDeepEffect, createDeepSignal } from "./src/new2/deep-signals";
+import { createDeepEffect, createDeepSignal } from "./src/deep-signals";
 
 const signal = createDeepSignal({
   nested: {
@@ -14,7 +14,6 @@ const signal = createDeepSignal({
 createDeepEffect(() => {
   signal.array;
 });
-debugger;
 signal.array[0].id = 2;
 signal.array.push({
   id: 3,
