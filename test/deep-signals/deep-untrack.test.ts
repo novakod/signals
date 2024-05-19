@@ -1,7 +1,7 @@
 import { expect, test, vitest } from "vitest";
 import { createDeepEffect, createDeepSignal, deepUntrack } from "../../src/deep-signals";
 
-test("Тестирование функции deepUntracked", () => {
+test("1. Тестирование функции deepUntracked", () => {
   const signal = createDeepSignal({
     count: 0,
     nestedField: {
