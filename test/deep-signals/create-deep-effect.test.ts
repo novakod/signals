@@ -364,3 +364,47 @@ test("Если у данных, которые используются в эф�
   signal.array[1].id = 3;
   expect(spyFn3).toBeCalledTimes(3);
 });
+
+test("Если объект из одной ветки сигнала установить в другую ветку, то, при изменении данных объекта, вызываются эффекты, подписанные на оба пути", () => {
+  const signal = createDeepSignal({
+    data: {
+      users: [
+        {
+          id: 1,
+          name: "test",
+        },
+      ],
+    },
+    form: {
+      selectedUser: null as null | { id: number; name: string },
+    },
+  });
+
+  const spyFn = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.data.users;
+  });
+  createDeepEffect(spyFn);
+
+  const spyFn2 = vitest.fn<Parameters<DeepEffectCb>>(() => {
+    signal.form;
+  });
+  createDeepEffect(spyFn2);
+
+  expect(spyFn).toBeCalledTimes(1);
+  expect(spyFn2).toBeCalledTimes(1);
+  signal.data.users[0].id = 2;
+  expect(spyFn).toBeCalledTimes(2);
+  expect(spyFn2).toBeCalledTimes(1);
+
+  signal.form.selectedUser = signal.data.users[0];
+  expect(spyFn).toBeCalledTimes(2);
+  expect(spyFn2).toBeCalledTimes(2);
+
+  signal.data.users[0].name = "test2";
+  expect(spyFn).toBeCalledTimes(3);
+  expect(spyFn2).toBeCalledTimes(3);
+
+  signal.form.selectedUser.name = "test3";
+  expect(spyFn).toBeCalledTimes(4);
+  expect(spyFn2).toBeCalledTimes(4);
+});
