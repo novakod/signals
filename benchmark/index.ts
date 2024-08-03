@@ -1,5 +1,5 @@
 import { Suite } from "benchmark";
-import { createDeepEffect, createDeepSignal } from "../src/new2/deep-signals";
+import { createDeepEffect, createDeepSignal } from "./../src/deep-signals";
 
 const suite = new Suite();
 
