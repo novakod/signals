@@ -15,7 +15,7 @@ export function deepGet<Data>(obj: Record<string, any>, path: (string | symbol)[
 
   for (let i = 0; i < path.length; i++) {
     const part = path[i];
-    if (typeof result !== "object" || !Object.hasOwn(result as object, part)) return undefined as Data;
+    if (typeof result !== "object" || result === null || !Object.hasOwn(result as object, part)) return undefined as Data;
 
     result = result![part as keyof typeof result] as Data;
   }
