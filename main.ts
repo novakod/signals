@@ -1,20 +1,13 @@
-import { createDeepEffect, createDeepSignal } from "./src/deep-signals";
+import { createEffect, createSignal } from "./src/new-signals/signal";
 
-const signal = createDeepSignal({
-  nested: {
-    count: 0,
-  },
-  array: [
-    {
-      id: 1,
-    },
-  ],
+const signal = createSignal({
+  count: 0,
 });
 
-createDeepEffect(() => {
-  signal.array;
+createEffect(() => {
+  console.log(`count: ${signal.count}`);
 });
-signal.array[0].id = 2;
-signal.array.push({
-  id: 3,
+
+document.querySelector("#button1")?.addEventListener("click", () => {
+  signal.count += 1;
 });
