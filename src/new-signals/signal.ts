@@ -30,13 +30,6 @@ let currentEffect: Effect | null = null;
 const VALUE_NODE_SYMBOL = Symbol.for("SIGNAL_VALUE_NODE_SYMBOL");
 
 export function createSignal<T extends object>(value: T): T {
-  // Если значение не объект, а, к примеру, строка или число,
-  // то оно не может быть сигналом
-  if (!isCanBeSignal(value)) {
-    console.warn(`Значение ${value} не может быть сигналом`);
-    return value;
-  }
-
   const existingNode = value[VALUE_NODE_SYMBOL as keyof T] as Signal<T> | undefined;
 
   // Если для этого значения сигнал уже существует,
@@ -52,7 +45,7 @@ export function createSignal<T extends object>(value: T): T {
   const node: Signal<T> = {
     value,
     proxy: new Proxy(value, {
-      get(target, key) {
+      get(target, key, reciever) {
         // Если значение сигнала получают внутри эффекта,
         // то значит нужно подписать эффект на этот сигнал
         if (currentEffect) {
@@ -71,7 +64,13 @@ export function createSignal<T extends object>(value: T): T {
           subscribedKeys[key] = node.version;
         }
 
-        return Reflect.get(target, key);
+        const value = Reflect.get(target, key, reciever);
+
+        if (isCanBeSignal(value)) {
+          return createSignal(value);
+        }
+
+        return value;
       },
       set(target, key, newValue, reciever) {
         const isSet = Reflect.set(target, key, newValue, reciever);
