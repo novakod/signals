@@ -6,10 +6,15 @@ const signal = createSignal({
       count: 0,
     },
   },
+  subscribed: true,
 });
 
 createEffect(() => {
-  console.log("count: ", signal.nested);
+  console.log("createEffect", Date.now());
+
+  if (signal.subscribed) {
+    signal.nested;
+  }
 });
 
 document.querySelector("#button1")?.addEventListener("click", () => {
@@ -22,4 +27,8 @@ document.querySelector("#button2")?.addEventListener("click", () => {
       count: signal.nested.nested.count + 1,
     },
   };
+});
+
+document.querySelector("#button3")?.addEventListener("click", () => {
+  signal.subscribed = !signal.subscribed;
 });

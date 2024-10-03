@@ -27,9 +27,14 @@ export type Signal<T extends object> = {
 let currentEffect: Effect | null = null;
 
 const VALUE_SIGNAL_SYMBOL = Symbol.for("VALUE_SIGNAL");
+const ANY_KEY_SYMBOL = Symbol.for("ANY_KEY");
+
+function getSignal<Value extends object>(value: Value): Signal<Value> | undefined {
+  return value[VALUE_SIGNAL_SYMBOL as keyof typeof value] as Signal<Value> | undefined;
+}
 
 export function createSignal<T extends object>(value: T): T {
-  const existingSignal = value[VALUE_SIGNAL_SYMBOL as keyof T] as Signal<T> | undefined;
+  const existingSignal = getSignal(value);
 
   // Если для этого значения сигнал уже существует,
   // то он указан по ключу VALUE_SIGNAL_SYMBOL.
@@ -69,7 +74,29 @@ export function createSignal<T extends object>(value: T): T {
         const value = Reflect.get(target, key, reciever);
 
         if (isCanBeSignal(value)) {
-          return createSignal(value);
+          const valueSignal = getSignal<object>(value);
+
+          if (valueSignal) {
+            return valueSignal.proxy;
+          } else {
+            const proxiedValue = createSignal(value);
+
+            const newSignal = getSignal<object>(proxiedValue)!;
+
+            subscribers.forEach((subscribedKeys, effect) => {
+              const newSubscribedKeys = {};
+
+              Object.defineProperty(newSubscribedKeys, ANY_KEY_SYMBOL, {
+                get() {
+                  return subscribedKeys[ANY_KEY_SYMBOL] || (subscribers.get(effect)![key] as number);
+                },
+              });
+
+              newSignal.subscribers.set(effect, newSubscribedKeys);
+            });
+
+            return proxiedValue;
+          }
         }
 
         return value;
@@ -84,7 +111,7 @@ export function createSignal<T extends object>(value: T): T {
           // cb, если версия сигнала соответствует текущей
           // версии
           subscribers.forEach((subscribedKeys, effect) => {
-            if (subscribedKeys[key] === effect.version) {
+            if (subscribedKeys[ANY_KEY_SYMBOL] === effect.version || subscribedKeys[key] === effect.version) {
               if (effect.isDisposed) {
                 subscribers.delete(effect);
               } else {
