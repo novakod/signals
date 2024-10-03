@@ -45,6 +45,9 @@ export function createSignal<T extends object>(value: T): T {
     value,
     proxy: new Proxy(value, {
       get(target, key, reciever) {
+        if (key === VALUE_NODE_SYMBOL) {
+          return node;
+        }
         // Если значение сигнала получают внутри эффекта,
         // то значит нужно подписать эффект на этот сигнал
         if (currentEffect) {
