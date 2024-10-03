@@ -9,7 +9,7 @@ export type Effect = {
   runCb(): void;
 };
 
-export type Node<T extends object> = {
+export type Signal<T extends object> = {
   // Исходное значение, с которым работает сигнал
   value: T;
   // Прокси значения
@@ -37,7 +37,7 @@ export function createSignal<T extends object>(value: T): T {
     return value;
   }
 
-  const existingNode = value[VALUE_NODE_SYMBOL as keyof T] as Node<T> | undefined;
+  const existingNode = value[VALUE_NODE_SYMBOL as keyof T] as Signal<T> | undefined;
 
   // Если для этого значения сигнал уже существует,
   // то он указан по ключу VALUE_NODE_SYMBOL.
@@ -47,9 +47,9 @@ export function createSignal<T extends object>(value: T): T {
     return existingNode.proxy;
   }
 
-  const subscribers: Node<T>["subscribers"] = new Map();
+  const subscribers: Signal<T>["subscribers"] = new Map();
 
-  const node: Node<T> = {
+  const node: Signal<T> = {
     value,
     proxy: new Proxy(value, {
       get(target, key) {
