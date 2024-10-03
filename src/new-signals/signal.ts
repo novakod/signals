@@ -6,6 +6,7 @@ export type Effect = {
   // Флаг, что эффект больше не активен
   isDisposed: boolean;
   // Функция, которая вызывает эффект
+  version: number;
   runCb(): void;
 };
 
@@ -14,8 +15,6 @@ export type Signal<T extends object> = {
   value: T;
   // Прокси значения
   proxy: T;
-  // Версия сигнала
-  version: number;
   // Список подписчиков
   // В ключе лежит эффект, а в значении по ключу лежит объект,
   // где ключ - это ключ сигнала, а значение - версия сигнала, на которую он подписан
@@ -61,7 +60,7 @@ export function createSignal<T extends object>(value: T): T {
             subscribedKeys = newSubscribedKeys;
           }
 
-          subscribedKeys[key] = node.version;
+          subscribedKeys[key] = currentEffect.version;
         }
 
         const value = Reflect.get(target, key, reciever);
@@ -78,16 +77,11 @@ export function createSignal<T extends object>(value: T): T {
         // Если новое значение получилось установить, то нужно
         // оповестить всех подписчиков
         if (isSet) {
-          const currentNodeVersion = node.version;
-
-          // Увеличиваем версию сигнала
-          node.version++;
-
           // Походимся по всем подписчикам и вызываем их
           // cb, если версия сигнала соответствует текущей
           // версии
           subscribers.forEach((subscribedKeys, effect) => {
-            if (subscribedKeys[key] === currentNodeVersion) {
+            if (subscribedKeys[key] === effect.version) {
               if (effect.isDisposed) {
                 subscribers.delete(effect);
               } else {
@@ -100,7 +94,6 @@ export function createSignal<T extends object>(value: T): T {
         return isSet;
       },
     }),
-    version: 0,
     subscribers,
   };
 
@@ -118,11 +111,13 @@ export function createSignal<T extends object>(value: T): T {
 }
 
 export function createEffect(cb: VoidFunction) {
-  const effect = {
+  const effect: Effect = {
     cb,
     isDisposed: false,
+    version: 0,
     runCb() {
       currentEffect = this;
+      this.version++;
       this.cb();
       currentEffect = null;
     },
