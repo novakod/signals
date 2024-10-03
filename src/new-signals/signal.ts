@@ -26,27 +26,27 @@ export type Signal<T extends object> = {
 
 let currentEffect: Effect | null = null;
 
-const VALUE_NODE_SYMBOL = Symbol.for("SIGNAL_VALUE_NODE_SYMBOL");
+const VALUE_SIGNAL_SYMBOL = Symbol.for("VALUE_SIGNAL");
 
 export function createSignal<T extends object>(value: T): T {
-  const existingNode = value[VALUE_NODE_SYMBOL as keyof T] as Signal<T> | undefined;
+  const existingSignal = value[VALUE_SIGNAL_SYMBOL as keyof T] as Signal<T> | undefined;
 
   // Если для этого значения сигнал уже существует,
-  // то он указан по ключу VALUE_NODE_SYMBOL.
+  // то он указан по ключу VALUE_SIGNAL_SYMBOL.
   // Тогда просто возвращаем прокси сущесовующего сигнала
   // и не создаём новый сигнал
-  if (existingNode) {
-    return existingNode.proxy;
+  if (existingSignal) {
+    return existingSignal.proxy;
   }
 
   const subscribers: Signal<T>["subscribers"] = new Map();
 
-  const node: Signal<T> = {
+  const signal: Signal<T> = {
     value,
     proxy: new Proxy(value, {
       get(target, key, reciever) {
-        if (key === VALUE_NODE_SYMBOL) {
-          return node;
+        if (key === VALUE_SIGNAL_SYMBOL) {
+          return signal;
         }
         // Если значение сигнала получают внутри эффекта,
         // то значит нужно подписать эффект на этот сигнал
@@ -100,17 +100,17 @@ export function createSignal<T extends object>(value: T): T {
     subscribers,
   };
 
-  // Устанавливаем для значения созданную ноду по ключу VALUE_NODE_SYMBOL
+  // Устанавливаем для значения созданную ноду по ключу VALUE_SIGNAL_SYMBOL
   // Если попытаться создать новый сигнал для этого значения, то
   // вернётся прокси уже созданного сигнала
-  Object.defineProperty(value, VALUE_NODE_SYMBOL, {
-    value: node,
+  Object.defineProperty(value, VALUE_SIGNAL_SYMBOL, {
+    value: signal,
     enumerable: false,
     writable: false,
     configurable: false,
   });
 
-  return node.proxy;
+  return signal.proxy;
 }
 
 export function createEffect(cb: VoidFunction) {
