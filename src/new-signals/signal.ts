@@ -157,7 +157,13 @@ export function createSignal<T extends object>(value: T): T {
     subscribers: new Set(),
     children: new Map(),
     upsertSubscription(effect, key) {
-      effect.subscriptions.get(this)?.set(key, effect.version);
+      const subscribedKeys = effect.subscriptions.get(this);
+
+      if (subscribedKeys?.get(key) === effect.version) {
+        return;
+      }
+
+      subscribedKeys?.set(key, effect.version);
 
       this.children.forEach((_, childSignal) => {
         childSignal.upsertSubscription(effect, ANY_KEY_SYMBOL);
