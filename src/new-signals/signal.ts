@@ -24,7 +24,7 @@ export type Signal<T extends object> = {
   // текущей версии сигнала. После итерации списка подписчиков версия сигнала увеличивается
   subscribers: Set<Effect>;
   children: Map<Signal<object>, Set<string | symbol>>;
-  setSubscriptionVersion(effect: Effect, key: string | symbol): void;
+  upsertSubscription(effect: Effect, key: string | symbol): void;
 };
 
 let currentEffect: Effect | null = null;
@@ -82,7 +82,7 @@ export function createSignal<T extends object>(value: T): T {
             subscribedKeys = newSubscribedKeys;
           }
 
-          signal.setSubscriptionVersion(currentEffect, key);
+          signal.upsertSubscription(currentEffect, key);
         }
 
         if (isCanBeSignal(value)) {
@@ -108,7 +108,7 @@ export function createSignal<T extends object>(value: T): T {
                   subscribedKeys = newSubscribedKeys;
                 }
 
-                valueSignal.setSubscriptionVersion(effect, PARENT_KEYS_SYMBOL);
+                valueSignal.upsertSubscription(effect, PARENT_KEYS_SYMBOL);
               }
             });
           } else {
@@ -155,11 +155,11 @@ export function createSignal<T extends object>(value: T): T {
     }),
     subscribers: new Set(),
     children: new Map(),
-    setSubscriptionVersion(effect, key) {
+    upsertSubscription(effect, key) {
       effect.subscriptions.get(this)?.set(key, effect.version);
 
       this.children.forEach((_, childSignal) => {
-        childSignal.setSubscriptionVersion(effect, PARENT_KEYS_SYMBOL);
+        childSignal.upsertSubscription(effect, PARENT_KEYS_SYMBOL);
       });
     },
   };
