@@ -1,4 +1,4 @@
-import { isCanBeSignal } from "./utils";
+import { canBeSignal } from "./utils";
 
 export type Effect = {
   // Функция, которая передаётся при создании эффекта
@@ -86,7 +86,7 @@ export function createSignal<T extends object>(value: T): T {
           signal.upsertSubscription(currentEffect, key);
         }
 
-        if (isCanBeSignal(value)) {
+        if (canBeSignal(value)) {
           let valueSignal = getSignal<object>(value) as Signal<object>;
 
           if (!valueSignal) {
