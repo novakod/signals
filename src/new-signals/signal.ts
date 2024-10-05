@@ -7,6 +7,7 @@ export type Effect = {
   isDisposed: boolean;
   // Функция, которая вызывает эффект
   version: number;
+  subscriptions: Map<Signal<object>, Map<string | symbol, number>>;
   runCb(): void;
 };
 
@@ -21,13 +22,15 @@ export type Signal<T extends object> = {
   // При установке нового значения сигнала список эффектов итерируется
   // и эффект вызывается, если версия сигнала, на которую он подписан, соответствует
   // текущей версии сигнала. После итерации списка подписчиков версия сигнала увеличивается
-  subscribers: Map<Effect, Record<string | symbol, number>>;
+  subscribers: Set<Effect>;
+  children: Map<Signal<object>, Set<string | symbol>>;
+  setSubscriptionVersion(effect: Effect, key: string | symbol): void;
 };
 
 let currentEffect: Effect | null = null;
 
 const VALUE_SIGNAL_SYMBOL = Symbol.for("VALUE_SIGNAL");
-const ANY_KEY_SYMBOL = Symbol.for("ANY_KEY");
+const PARENT_KEYS_SYMBOL = Symbol.for("PARENT_KEYS");
 
 function getSignal<Value extends object>(value: Value): Signal<Value> | undefined {
   return value[VALUE_SIGNAL_SYMBOL as keyof typeof value] as Signal<Value> | undefined;
@@ -44,8 +47,6 @@ export function createSignal<T extends object>(value: T): T {
     return existingSignal.proxy;
   }
 
-  const subscribers: Signal<T>["subscribers"] = new Map();
-
   const signal: Signal<T> = {
     value,
     proxy: new Proxy(value, {
@@ -56,47 +57,59 @@ export function createSignal<T extends object>(value: T): T {
         // Если значение сигнала получают внутри эффекта,
         // то значит нужно подписать эффект на этот сигнал
         if (currentEffect) {
-          let subscribedKeys = subscribers.get(currentEffect);
+          let subscribedKeys = currentEffect.subscriptions.get(signal);
 
           // Если ээфект вообще не подписан на этот сигнал,
           // то subscribedKeys будет undefined
           // Тогда нужно создать новый объект, добавить туда ключ, на который подписывается эффект
           // и подписать объект на сигнал
           if (!subscribedKeys) {
-            const newSubscribedKeys: Record<string | symbol, number> = {};
-            subscribers.set(currentEffect, newSubscribedKeys);
+            const newSubscribedKeys: Map<string | symbol, number> = new Map();
+            currentEffect.subscriptions.set(signal, newSubscribedKeys);
+            signal.subscribers.add(currentEffect);
             subscribedKeys = newSubscribedKeys;
           }
 
-          subscribedKeys[key] = currentEffect.version;
+          signal.setSubscriptionVersion(currentEffect, key);
         }
 
         const value = Reflect.get(target, key, reciever);
 
         if (isCanBeSignal(value)) {
-          const valueSignal = getSignal<object>(value);
+          let valueSignal = getSignal<object>(value) as Signal<object>;
 
-          if (valueSignal) {
-            return valueSignal.proxy;
-          } else {
+          if (!valueSignal) {
             const proxiedValue = createSignal(value);
 
-            const newSignal = getSignal<object>(proxiedValue)!;
+            valueSignal = getSignal<object>(proxiedValue) as Signal<object>;
 
-            subscribers.forEach((subscribedKeys, effect) => {
-              const newSubscribedKeys = {};
+            signal.children.set(valueSignal, new Set([key]));
 
-              Object.defineProperty(newSubscribedKeys, ANY_KEY_SYMBOL, {
-                get() {
-                  return subscribedKeys[ANY_KEY_SYMBOL] || (subscribers.get(effect)![key] as number);
-                },
-              });
+            signal.subscribers.forEach((effect) => {
+              const parentSubscribedKeys = effect.subscriptions.get(signal);
 
-              newSignal.subscribers.set(effect, newSubscribedKeys);
+              if (parentSubscribedKeys?.has(PARENT_KEYS_SYMBOL) || parentSubscribedKeys?.has(key)) {
+                let subscribedKeys = effect.subscriptions.get(valueSignal);
+
+                if (!subscribedKeys) {
+                  const newSubscribedKeys: Map<string | symbol, number> = new Map();
+                  effect.subscriptions.set(valueSignal, newSubscribedKeys);
+                  valueSignal.subscribers.add(effect);
+                  subscribedKeys = newSubscribedKeys;
+                }
+
+                valueSignal.setSubscriptionVersion(effect, PARENT_KEYS_SYMBOL);
+              }
             });
+          } else {
+            if (!signal.children.has(valueSignal)) {
+              signal.children.set(valueSignal, new Set());
+            }
 
-            return proxiedValue;
+            signal.children.get(valueSignal)!.add(key);
           }
+
+          return valueSignal.proxy;
         }
 
         return value;
@@ -104,16 +117,22 @@ export function createSignal<T extends object>(value: T): T {
       set(target, key, newValue, reciever) {
         const isSet = Reflect.set(target, key, newValue, reciever);
 
+        if (Array.isArray(target) && key === "length") {
+          return isSet;
+        }
+
         // Если новое значение получилось установить, то нужно
         // оповестить всех подписчиков
         if (isSet) {
           // Походимся по всем подписчикам и вызываем их
           // cb, если версия сигнала соответствует текущей
           // версии
-          subscribers.forEach((subscribedKeys, effect) => {
-            if (subscribedKeys[ANY_KEY_SYMBOL] === effect.version || subscribedKeys[key] === effect.version) {
+          signal.subscribers.forEach((effect) => {
+            const currentSignalSubscriptions = effect.subscriptions.get(signal);
+            if (currentSignalSubscriptions?.get(PARENT_KEYS_SYMBOL) === effect.version || currentSignalSubscriptions?.get(key) === effect.version) {
               if (effect.isDisposed) {
-                subscribers.delete(effect);
+                signal.subscribers.delete(effect);
+                effect.subscriptions.delete(signal);
               } else {
                 effect.runCb();
               }
@@ -124,7 +143,15 @@ export function createSignal<T extends object>(value: T): T {
         return isSet;
       },
     }),
-    subscribers,
+    subscribers: new Set(),
+    children: new Map(),
+    setSubscriptionVersion(effect, key) {
+      effect.subscriptions.get(this)?.set(key, effect.version);
+
+      this.children.forEach((_, childSignal) => {
+        childSignal.setSubscriptionVersion(effect, PARENT_KEYS_SYMBOL);
+      });
+    },
   };
 
   // Устанавливаем для значения созданную ноду по ключу VALUE_SIGNAL_SYMBOL
@@ -145,6 +172,7 @@ export function createEffect(cb: VoidFunction) {
     cb,
     isDisposed: false,
     version: 0,
+    subscriptions: new Map(),
     runCb() {
       currentEffect = this;
       this.version++;
