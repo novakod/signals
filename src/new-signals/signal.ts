@@ -59,7 +59,7 @@ export function createSignal<T extends object>(value: T): T {
         // значения по которому пока нет), то подписываем эффект на текущий
         // сигнал по ключу key в надежде, что в будущем значение по этому
         // ключу появится в сигнале
-        if (value && !Object.hasOwn(target, key)) {
+        if ((value && !Object.hasOwn(target, key)) || (key === "length" && Array.isArray(target))) {
           return value;
         }
 
