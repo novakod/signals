@@ -30,7 +30,7 @@ export type Signal<T extends object> = {
 let currentEffect: Effect | null = null;
 
 const VALUE_SIGNAL_SYMBOL = Symbol.for("VALUE_SIGNAL");
-const PARENT_KEYS_SYMBOL = Symbol.for("PARENT_KEYS");
+const ANY_KEY_SYMBOL = Symbol.for("ANY_KEY");
 
 function getSignal<Value extends object>(value: Value): Signal<Value> | undefined {
   return value[VALUE_SIGNAL_SYMBOL as keyof typeof value] as Signal<Value> | undefined;
@@ -98,7 +98,7 @@ export function createSignal<T extends object>(value: T): T {
             signal.subscribers.forEach((effect) => {
               const parentSubscribedKeys = effect.subscriptions.get(signal);
 
-              if (parentSubscribedKeys?.has(PARENT_KEYS_SYMBOL) || parentSubscribedKeys?.has(key)) {
+              if (parentSubscribedKeys?.has(ANY_KEY_SYMBOL) || parentSubscribedKeys?.has(key)) {
                 let subscribedKeys = effect.subscriptions.get(valueSignal);
 
                 if (!subscribedKeys) {
@@ -108,7 +108,7 @@ export function createSignal<T extends object>(value: T): T {
                   subscribedKeys = newSubscribedKeys;
                 }
 
-                valueSignal.upsertSubscription(effect, PARENT_KEYS_SYMBOL);
+                valueSignal.upsertSubscription(effect, ANY_KEY_SYMBOL);
               }
             });
           } else {
@@ -139,7 +139,7 @@ export function createSignal<T extends object>(value: T): T {
           // версии
           signal.subscribers.forEach((effect) => {
             const currentSignalSubscriptions = effect.subscriptions.get(signal);
-            if (currentSignalSubscriptions?.get(PARENT_KEYS_SYMBOL) === effect.version || currentSignalSubscriptions?.get(key) === effect.version) {
+            if (currentSignalSubscriptions?.get(ANY_KEY_SYMBOL) === effect.version || currentSignalSubscriptions?.get(key) === effect.version) {
               if (effect.isDisposed) {
                 signal.subscribers.delete(effect);
                 effect.subscriptions.delete(signal);
@@ -159,7 +159,7 @@ export function createSignal<T extends object>(value: T): T {
       effect.subscriptions.get(this)?.set(key, effect.version);
 
       this.children.forEach((_, childSignal) => {
-        childSignal.upsertSubscription(effect, PARENT_KEYS_SYMBOL);
+        childSignal.upsertSubscription(effect, ANY_KEY_SYMBOL);
       });
     },
   };
