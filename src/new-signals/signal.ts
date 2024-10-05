@@ -51,6 +51,18 @@ export function createSignal<T extends object>(value: T): T {
     value,
     proxy: new Proxy(value, {
       get(target, key, reciever) {
+        const value = Reflect.get(target, key, reciever);
+
+        // Если мы пытаемся получить какой-нибудь метод массива или
+        // свойство прототипа объекта, то возвращаем его без проксирования
+        // В случае же если value не сущестсвует(т.е., например это индекс массива
+        // значения по которому пока нет), то подписываем эффект на текущий
+        // сигнал по ключу key в надежде, что в будущем значение по этому
+        // ключу появится в сигнале
+        if (value && !Object.hasOwn(target, key)) {
+          return value;
+        }
+
         if (key === VALUE_SIGNAL_SYMBOL) {
           return signal;
         }
@@ -72,8 +84,6 @@ export function createSignal<T extends object>(value: T): T {
 
           signal.setSubscriptionVersion(currentEffect, key);
         }
-
-        const value = Reflect.get(target, key, reciever);
 
         if (isCanBeSignal(value)) {
           let valueSignal = getSignal<object>(value) as Signal<object>;
