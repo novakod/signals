@@ -28,6 +28,7 @@ export type Signal<T extends object> = {
 };
 
 let currentEffect: Effect | null = null;
+let currentBatch: Set<Effect> | null = null;
 
 const VALUE_SIGNAL_SYMBOL = Symbol.for("VALUE_SIGNAL");
 const ANY_KEY_SYMBOL = Symbol.for("ANY_KEY");
@@ -184,10 +185,14 @@ export function createEffect(cb: VoidFunction) {
     version: 0,
     subscriptions: new Map(),
     runCb() {
-      currentEffect = this;
-      this.version++;
-      this.cb();
-      currentEffect = null;
+      if (currentBatch) {
+        currentBatch.add(this);
+      } else {
+        currentEffect = this;
+        this.version++;
+        this.cb();
+        currentEffect = null;
+      }
     },
   };
 
@@ -201,4 +206,16 @@ export function untrack<Value>(cb: () => Value): Value {
   currentEffect = temp;
 
   return value;
+}
+
+export function batch(cb: () => void) {
+  if (currentBatch) {
+    cb();
+  } else {
+    currentBatch = new Set();
+    cb();
+    const executedBatch = currentBatch;
+    currentBatch = null;
+    executedBatch.forEach((effect) => effect.runCb());
+  }
 }
