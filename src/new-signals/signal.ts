@@ -193,3 +193,12 @@ export function createEffect(cb: VoidFunction) {
 
   effect.runCb();
 }
+
+export function untrack<Value>(cb: () => Value): Value {
+  const temp = currentEffect;
+  currentEffect = null;
+  const value = cb();
+  currentEffect = temp;
+
+  return value;
+}
