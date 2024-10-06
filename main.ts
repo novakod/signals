@@ -1,34 +1,35 @@
-import { createEffect, createSignal } from "./src/new-signals/signal";
+import { batch, createEffect, createSignal, trackNested } from "./src/signals";
 
 const signal = createSignal({
-  nested: {
-    nested: {
-      count: 0,
-    },
-  },
-  subscribed: true,
+  items: Array.from({ length: 1000 }).map((_, i) => ({
+    id: i,
+    name: `Item ${i}`,
+    friends: ["Sam", "Bob", "Jen", "Jim"],
+    map: {} as any,
+  })),
 });
 
-createEffect(() => {
+const dispose = createEffect(() => {
   console.log("createEffect", Date.now());
 
-  if (signal.subscribed) {
-    signal.nested;
-  }
+  trackNested(signal.items);
 });
 
 document.querySelector("#button1")?.addEventListener("click", () => {
-  signal.nested.nested.count += 1;
+  signal.items[1].id += 1;
 });
 
 document.querySelector("#button2")?.addEventListener("click", () => {
-  signal.nested = {
-    nested: {
-      count: signal.nested.nested.count + 1,
-    },
-  };
+  dispose();
 });
 
 document.querySelector("#button3")?.addEventListener("click", () => {
-  signal.subscribed = !signal.subscribed;
+  signal.items.push({
+    id: 4,
+    name: "Item 4",
+    friends: ["Sam"],
+    map: {} as any,
+  });
 });
+
+batch(() => {});
