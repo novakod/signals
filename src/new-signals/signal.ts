@@ -103,7 +103,7 @@ export function createSignal<T extends object>(value: T): T {
 
           // Если это массив, то, так как ключи массива динамические, то
           //  нам нужно подписать эффект на сигнал этого массива по ANY_KEY_SYMBOL
-          if (currentEffect && Array.isArray(value)) {
+          if (currentEffect) {
             let subscribedKeys = currentEffect.subscriptions.get(valueSignal);
 
             // Если ээфект вообще не подписан на этот сигнал,
