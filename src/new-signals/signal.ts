@@ -128,6 +128,10 @@ export function createSignal<T extends object>(value: T): T {
       set(target, key, newValue, reciever) {
         const isSet = Reflect.set(target, key, newValue, reciever);
 
+        // Установку длинны массива нужно проигнорировать
+        // потому что её установка идёт после добавления
+        // или удаления элемента массива, а для этого уже
+        // была вызвана установка
         if (Array.isArray(target) && key === "length") {
           return isSet;
         }
@@ -137,7 +141,7 @@ export function createSignal<T extends object>(value: T): T {
         if (isSet) {
           // Походимся по всем подписчикам и вызываем их
           // cb, если версия сигнала соответствует текущей
-          // версии
+          // версии эффекта
           signal.subscribers?.forEach((effect) => {
             const currentSignalSubscriptions = effect.subscriptions.get(signal);
             if (currentSignalSubscriptions?.get(ANY_KEY_SYMBOL) === effect.version || currentSignalSubscriptions?.get(key) === effect.version) {
@@ -164,7 +168,7 @@ export function createSignal<T extends object>(value: T): T {
     },
   };
 
-  // Устанавливаем для значения созданную ноду по ключу VALUE_SIGNAL_SYMBOL
+  // Устанавливаем для значения созданный сигнал по ключу VALUE_SIGNAL_SYMBOL
   // Если попытаться создать новый сигнал для этого значения, то
   // вернётся прокси уже созданного сигнала
   Object.defineProperty(value, VALUE_SIGNAL_SYMBOL, {
@@ -184,6 +188,8 @@ export function createEffect(cb: VoidFunction) {
     version: 0,
     subscriptions: new Map(),
     runCb() {
+      // Если запущен батчинг, то нужно отложить вызов эффектов
+      // до тех пор пока батчинг не закончится
       if (currentBatch) {
         currentBatch.add(this);
       } else {
@@ -198,6 +204,11 @@ export function createEffect(cb: VoidFunction) {
   effect.runCb();
 }
 
+/**
+ * Функция позволяет не отслеживать сигналы внутри эффектов
+ * @param cb - функция, которая возвращает значение
+ * @returns Полученное в cb значение
+ */
 export function untrack<Value>(cb: () => Value): Value {
   const temp = currentEffect;
   currentEffect = null;
@@ -207,6 +218,21 @@ export function untrack<Value>(cb: () => Value): Value {
   return value;
 }
 
+/**
+ * Функция позволяет аккумулировать изменения и не вызывать эффекты не многократно,
+ * что происходило бы при каждом изменении, а единожды после выполнения функции
+ * @example
+ * Подписанные эффекты вызовутся только один раз, а не два
+ * batch(() => {
+ *   signal.items.push({
+ *     id: Date.now(),
+ *   })
+ *   signal.items.push({
+ *     id: Date.now(),
+ *   })
+ * })
+ * @param cb - функция, внутри которой нужно устанавливать эначения сигналов
+ */
 export function batch(cb: () => void) {
   if (currentBatch) {
     cb();
@@ -219,6 +245,11 @@ export function batch(cb: () => void) {
   }
 }
 
+/**
+ * Функция позволяет получить значение, которое проксируется внутри сигнала
+ * @param value Прокси, значение которого нужно получить
+ * @returns значение без прокси
+ */
 export function getSignalValue<Value>(value: Value): Value {
   if (canBeSignal(value)) {
     const signal = getSignal(value);
@@ -235,7 +266,7 @@ type TrackNestedOptions = {
 
 const trackNestedDefaultOptions: TrackNestedOptions = {};
 
-export function _trackNested<Value>(value: Value, options: TrackNestedOptions = trackNestedDefaultOptions, currentDepth = 0): Value {
+function _trackNested<Value>(value: Value, options: TrackNestedOptions = trackNestedDefaultOptions, currentDepth = 0): Value {
   if (options.depth && currentDepth >= options.depth) {
     return value;
   }
@@ -255,6 +286,20 @@ export function _trackNested<Value>(value: Value, options: TrackNestedOptions = 
   return value;
 }
 
+/**
+ * Функция позволяет реализовать глубокое отслеживание сигналов
+ * @example
+ * Без использования trackNested отследить изменение users[0].name было бы невозможно
+ * createEffect(() => {
+ *   trackNested(signal.users);
+ * })
+ *
+ * signal.users[0].name = "test";
+ * @param value Прокси, значение которого нужно отслеживать
+ * @param options Настройки отслеживания
+ * @param options.depth Глубина отслеживания. Если не указано, то отслеживание будет производиться до бесконечности
+ * @returns переданное в первом агрументе значение
+ */
 export function trackNested<Value>(value: Value, options?: TrackNestedOptions): Value {
   return _trackNested(value, options);
 }
