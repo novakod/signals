@@ -22,9 +22,8 @@ export type Signal<T extends object> = {
   // При установке нового значения сигнала список эффектов итерируется
   // и эффект вызывается, если версия сигнала, на которую он подписан, соответствует
   // текущей версии сигнала. После итерации списка подписчиков версия сигнала увеличивается
-  subscribers: Set<Effect>;
-  children: Map<Signal<object>, Set<string | symbol>>;
-  upsertSubscription(effect: Effect, key: string | symbol): void;
+  subscribers?: Set<Effect>;
+  addSubscriber(effect: Effect): void;
 };
 
 let currentEffect: Effect | null = null;
@@ -52,6 +51,10 @@ export function createSignal<T extends object>(value: T): T {
     value,
     proxy: new Proxy(value, {
       get(target, key, reciever) {
+        if (key === VALUE_SIGNAL_SYMBOL) {
+          return signal;
+        }
+
         const value = Reflect.get(target, key, reciever);
 
         // Если мы пытаемся получить какой-нибудь метод массива или
@@ -64,9 +67,6 @@ export function createSignal<T extends object>(value: T): T {
           return value;
         }
 
-        if (key === VALUE_SIGNAL_SYMBOL) {
-          return signal;
-        }
         // Если значение сигнала получают внутри эффекта,
         // то значит нужно подписать эффект на этот сигнал
         if (currentEffect) {
@@ -79,11 +79,12 @@ export function createSignal<T extends object>(value: T): T {
           if (!subscribedKeys) {
             const newSubscribedKeys: Map<string | symbol, number> = new Map();
             currentEffect.subscriptions.set(signal, newSubscribedKeys);
-            signal.subscribers.add(currentEffect);
+            signal.addSubscriber(currentEffect);
             subscribedKeys = newSubscribedKeys;
           }
 
-          signal.upsertSubscription(currentEffect, key);
+          // Очень тяжёлая операция, нужно убрать и заменить на геттер
+          subscribedKeys.set(key, currentEffect.version);
         }
 
         if (canBeSignal(value)) {
@@ -93,31 +94,24 @@ export function createSignal<T extends object>(value: T): T {
             const proxiedValue = createSignal(value);
 
             valueSignal = getSignal<object>(proxiedValue) as Signal<object>;
+          }
 
-            signal.children.set(valueSignal, new Set([key]));
+          if (currentEffect && Array.isArray(value)) {
+            let subscribedKeys = currentEffect.subscriptions.get(valueSignal);
 
-            signal.subscribers.forEach((effect) => {
-              const parentSubscribedKeys = effect.subscriptions.get(signal);
-
-              if (parentSubscribedKeys?.has(ANY_KEY_SYMBOL) || parentSubscribedKeys?.has(key)) {
-                let subscribedKeys = effect.subscriptions.get(valueSignal);
-
-                if (!subscribedKeys) {
-                  const newSubscribedKeys: Map<string | symbol, number> = new Map();
-                  effect.subscriptions.set(valueSignal, newSubscribedKeys);
-                  valueSignal.subscribers.add(effect);
-                  subscribedKeys = newSubscribedKeys;
-                }
-
-                valueSignal.upsertSubscription(effect, ANY_KEY_SYMBOL);
-              }
-            });
-          } else {
-            if (!signal.children.has(valueSignal)) {
-              signal.children.set(valueSignal, new Set());
+            // Если ээфект вообще не подписан на этот сигнал,
+            // то subscribedKeys будет undefined
+            // Тогда нужно создать новый объект, добавить туда ключ, на который подписывается эффект
+            // и подписать объект на сигнал
+            if (!subscribedKeys) {
+              const newSubscribedKeys: Map<string | symbol, number> = new Map();
+              currentEffect.subscriptions.set(valueSignal, newSubscribedKeys);
+              valueSignal.addSubscriber(currentEffect);
+              subscribedKeys = newSubscribedKeys;
             }
 
-            signal.children.get(valueSignal)!.add(key);
+            // Очень тяжёлая операция, нужно убрать и заменить на геттер
+            subscribedKeys.set(ANY_KEY_SYMBOL, currentEffect.version);
           }
 
           return valueSignal.proxy;
@@ -138,11 +132,11 @@ export function createSignal<T extends object>(value: T): T {
           // Походимся по всем подписчикам и вызываем их
           // cb, если версия сигнала соответствует текущей
           // версии
-          signal.subscribers.forEach((effect) => {
+          signal.subscribers?.forEach((effect) => {
             const currentSignalSubscriptions = effect.subscriptions.get(signal);
             if (currentSignalSubscriptions?.get(ANY_KEY_SYMBOL) === effect.version || currentSignalSubscriptions?.get(key) === effect.version) {
               if (effect.isDisposed) {
-                signal.subscribers.delete(effect);
+                signal.subscribers?.delete(effect);
                 effect.subscriptions.delete(signal);
               } else {
                 effect.runCb();
@@ -154,20 +148,13 @@ export function createSignal<T extends object>(value: T): T {
         return isSet;
       },
     }),
-    subscribers: new Set(),
-    children: new Map(),
-    upsertSubscription(effect, key) {
-      const subscribedKeys = effect.subscriptions.get(this);
-
-      if (subscribedKeys?.get(key) === effect.version) {
-        return;
+    subscribers: undefined,
+    addSubscriber(effect: Effect) {
+      if (!this.subscribers) {
+        this.subscribers = new Set();
       }
 
-      subscribedKeys?.set(key, effect.version);
-
-      this.children.forEach((_, childSignal) => {
-        childSignal.upsertSubscription(effect, ANY_KEY_SYMBOL);
-      });
+      this.subscribers.add(effect);
     },
   };
 
