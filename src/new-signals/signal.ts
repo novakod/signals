@@ -1,4 +1,5 @@
 import { canBeSignal } from "./utils";
+import { isPureObject } from "@novakod/is-pure-object";
 
 export type Effect = {
   // Функция, которая передаётся при создании эффекта
@@ -221,4 +222,34 @@ export function getSignalValue<Value>(value: Value): Value {
   }
 
   return value;
+}
+
+type TrackNestedOptions = {
+  depth?: number;
+};
+
+const trackNestedDefaultOptions: TrackNestedOptions = {};
+
+export function _trackNested<Value>(value: Value, options: TrackNestedOptions = trackNestedDefaultOptions, currentDepth = 0): Value {
+  if (options.depth && currentDepth >= options.depth) {
+    return value;
+  }
+
+  if (canBeSignal(value)) {
+    if (Array.isArray(value)) {
+      for (let i = 0; i < value.length; i++) {
+        _trackNested(value[i], options, currentDepth + 1);
+      }
+    } else if (isPureObject(value)) {
+      for (const key in value) {
+        _trackNested(value[key], options, currentDepth + 1);
+      }
+    }
+  }
+
+  return value;
+}
+
+export function trackNested<Value>(value: Value, options?: TrackNestedOptions): Value {
+  return _trackNested(value, options);
 }

@@ -36,5 +36,8 @@
     "@novakod/deep-clone": "^1.0.0",
     "@novakod/deep-proxy": "^0.12.0",
     "@novakod/is-pure-object": "^1.0.4"
+  },
+  "dependencies": {
+    "@preact/signals-core": "^1.8.0"
   }
 }
