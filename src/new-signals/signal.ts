@@ -181,7 +181,26 @@ export function createSignal<T extends object>(value: T): T {
   return signal.proxy;
 }
 
-export function createEffect(cb: VoidFunction) {
+/**
+ * Функция позволяет отслеживать изменения сигналов, которые
+ * были использованы внутри эффекта
+ * @example
+ * const signal = createSignal({
+ *   count: 0
+ * });
+ *
+ * const dispose = createEffect(() => {
+ *   console.log('count: ', signal.count);
+ * })
+ *
+ * signal.count++;
+ * // Вывод: count: 1
+ *
+ * dispose();
+ * @param cb - функция, использованные сигналы внутри которой будут отслеживаться
+ * @returns функция для отмены отслеживания
+ */
+export function createEffect(cb: VoidFunction): VoidFunction {
   const effect: Effect = {
     cb,
     isDisposed: false,
@@ -202,6 +221,10 @@ export function createEffect(cb: VoidFunction) {
   };
 
   effect.runCb();
+
+  return () => {
+    effect.isDisposed = true;
+  };
 }
 
 /**
