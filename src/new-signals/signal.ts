@@ -52,6 +52,7 @@ export function createSignal<T extends object>(value: T): T {
     value,
     proxy: new Proxy(value, {
       get(target, key, reciever) {
+        // Если получаем ключ VALUE_SIGNAL_SYMBOL, то возвращаем сигнал
         if (key === VALUE_SIGNAL_SYMBOL) {
           return signal;
         }
@@ -60,7 +61,7 @@ export function createSignal<T extends object>(value: T): T {
 
         // Если мы пытаемся получить какой-нибудь метод массива или
         // свойство прототипа объекта, то возвращаем его без проксирования
-        // В случае же если value не сущестсвует(т.е., например это индекс массива
+        // В случае же если value не существует(т.е., например это индекс массива
         // значения по которому пока нет), то подписываем эффект на текущий
         // сигнал по ключу key в надежде, что в будущем значение по этому
         // ключу появится в сигнале
@@ -75,8 +76,8 @@ export function createSignal<T extends object>(value: T): T {
 
           // Если ээфект вообще не подписан на этот сигнал,
           // то subscribedKeys будет undefined
-          // Тогда нужно создать новый объект, добавить туда ключ, на который подписывается эффект
-          // и подписать объект на сигнал
+          // Тогда нужно создать новый Map, добавить туда ключ, на который подписывается эффект
+          // и подписать эффект на сигнал
           if (!subscribedKeys) {
             const newSubscribedKeys: Map<string | symbol, number> = new Map();
             currentEffect.subscriptions.set(signal, newSubscribedKeys);
@@ -84,19 +85,24 @@ export function createSignal<T extends object>(value: T): T {
             subscribedKeys = newSubscribedKeys;
           }
 
-          // Очень тяжёлая операция, нужно убрать и заменить на геттер
           subscribedKeys.set(key, currentEffect.version);
         }
 
+        // Если значение может быть сигналом, т е оно не является примитивом,
+        // то просто возвращаем его без проксирования
         if (canBeSignal(value)) {
           let valueSignal = getSignal<object>(value) as Signal<object>;
 
+          // Если для этого значения сигнал ешё не был создан,
+          // то создаем новый сигнал
           if (!valueSignal) {
             const proxiedValue = createSignal(value);
 
             valueSignal = getSignal<object>(proxiedValue) as Signal<object>;
           }
 
+          // Если это массив, то, так как ключи массива динамические, то
+          //  нам нужно подписать эффект на сигнал этого массива по ANY_KEY_SYMBOL
           if (currentEffect && Array.isArray(value)) {
             let subscribedKeys = currentEffect.subscriptions.get(valueSignal);
 
@@ -111,7 +117,6 @@ export function createSignal<T extends object>(value: T): T {
               subscribedKeys = newSubscribedKeys;
             }
 
-            // Очень тяжёлая операция, нужно убрать и заменить на геттер
             subscribedKeys.set(ANY_KEY_SYMBOL, currentEffect.version);
           }
 
