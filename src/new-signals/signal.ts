@@ -212,3 +212,13 @@ export function batch(cb: () => void) {
     executedBatch.forEach((effect) => effect.runCb());
   }
 }
+
+export function getSignalValue<Value>(value: Value): Value {
+  if (canBeSignal(value)) {
+    const signal = getSignal(value);
+
+    return signal?.value ?? value;
+  }
+
+  return value;
+}
