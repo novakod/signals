@@ -11,8 +11,8 @@
   },
   "license": "MIT",
   "type": "module",
-  "main": "./dist/deep-signals.umd.cjs",
-  "module": "./dist/deep-signals.js",
+  "main": "./dist/signals.umd.cjs",
+  "module": "./dist/signals.js",
   "types": "./dist/index.d.ts",
   "files": [
     "dist"
