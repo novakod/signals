@@ -1,20 +1,20 @@
 import { Suite } from "benchmark";
-import { createDeepEffect, createDeepSignal } from "./../src/deep-signals";
+import { createEffect, createSignal } from "../src/signals";
 
 const suite = new Suite();
 
 const getData = () => ({
   count: 0,
-  users: Array.from({ length: 1000 }).map((_, i) => ({
+  users: Array.from({ length: 10000 }).map((_, i) => ({
     id: i,
     name: `User ${i}`,
   })),
 });
 
-const signal = createDeepSignal(getData());
+const signal = createSignal(getData());
 
 for (let i = 0; i < 100; i++) {
-  createDeepEffect(() => {
+  createEffect(() => {
     signal.users;
   });
 }
@@ -24,7 +24,9 @@ suite
     console.log(String(event.target));
   })
   .add("createDeepSignal", () => {
-    signal.users.push({ id: signal.users.length, name: "test" });
+    // signal.users.push({ id: signal.users.length, name: "test" });
+
+    signal.users[0].name = "test";
   })
   .run({
     async: true,
