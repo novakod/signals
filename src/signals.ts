@@ -126,15 +126,21 @@ export function createSignal<T extends object>(value: T): T {
         return value;
       },
       set(target, key, newValue, reciever) {
-        const isSet = Reflect.set(target, key, newValue, reciever);
-
+        debugger;
         // Установку длинны массива нужно проигнорировать
-        // потому что её установка идёт после добавления
-        // или удаления элемента массива, а для этого уже
-        // была вызвана установка
-        if (Array.isArray(target) && key === "length") {
-          return isSet;
+        // в случае, если новая длина больше текущей, так как такая
+        // длина устанавливается после добавляется элемента в массив.
+        // Если же новая длина меньше текущей, то операцию игнорировать
+        // не нужно
+        if (key === "length" && Array.isArray(target)) {
+          const currentLength = Reflect.get(target, "length", reciever);
+
+          if (newValue >= currentLength) {
+            return Reflect.set(target, key, newValue, reciever);
+          }
         }
+
+        const isSet = Reflect.set(target, key, newValue, reciever);
 
         // Если новое значение получилось установить, то нужно
         // оповестить всех подписчиков

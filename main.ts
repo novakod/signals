@@ -16,7 +16,7 @@ const dispose = createEffect(() => {
 });
 
 document.querySelector("#button1")?.addEventListener("click", () => {
-  signal.items[1].id += 1;
+  signal.items.pop();
 });
 
 document.querySelector("#button2")?.addEventListener("click", () => {
