@@ -270,7 +270,16 @@ export function batch(cb: () => void) {
     cb();
     const executedBatch = currentBatch;
     currentBatch = null;
-    executedBatch.forEach((effect) => effect.runCb());
+    executedBatch.forEach((effect) => {
+      if (effect.isDisposed) {
+        effect.subscriptions.forEach((_, signal) => {
+          signal.subscribers?.delete(effect);
+        });
+        effect.subscriptions.clear();
+      } else {
+        effect.runCb();
+      }
+    });
   }
 }
 
