@@ -126,7 +126,6 @@ export function createSignal<T extends object>(value: T): T {
         return value;
       },
       set(target, key, newValue, reciever) {
-        debugger;
         // Установку длинны массива нужно проигнорировать
         // в случае, если новая длина больше текущей, так как такая
         // длина устанавливается после добавляется элемента в массив.
