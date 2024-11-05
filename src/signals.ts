@@ -101,25 +101,6 @@ export function createSignal<T extends object>(value: T): T {
             valueSignal = getSignal<object>(proxiedValue) as Signal<object>;
           }
 
-          // Если это массив, то, так как ключи массива динамические, то
-          //  нам нужно подписать эффект на сигнал этого массива по ANY_KEY_SYMBOL
-          if (currentEffect) {
-            let subscribedKeys = currentEffect.subscriptions.get(valueSignal);
-
-            // Если ээфект вообще не подписан на этот сигнал,
-            // то subscribedKeys будет undefined
-            // Тогда нужно создать новый объект, добавить туда ключ, на который подписывается эффект
-            // и подписать объект на сигнал
-            if (!subscribedKeys) {
-              const newSubscribedKeys: Map<string | symbol, number> = new Map();
-              currentEffect.subscriptions.set(valueSignal, newSubscribedKeys);
-              valueSignal.addSubscriber(currentEffect);
-              subscribedKeys = newSubscribedKeys;
-            }
-
-            subscribedKeys.set(ANY_KEY_SYMBOL, currentEffect.version);
-          }
-
           return valueSignal.proxy;
         }
 
@@ -297,29 +278,49 @@ export function getSignalValue<Value>(value: Value): Value {
   return value;
 }
 
-type TrackNestedOptions = {
-  depth?: number;
-};
-
-const trackNestedDefaultOptions: TrackNestedOptions = {};
-
-function _trackNested<Value>(value: Value, options: TrackNestedOptions = trackNestedDefaultOptions, currentDepth = 0): Value {
-  if (options.depth && currentDepth >= options.depth) {
+function _trackNested<Value>(value: Value, depth?: number, currentDepth = 0): Value {
+  if (!currentEffect) {
     return value;
   }
 
-  if (canBeSignal(value)) {
-    if (Array.isArray(value)) {
-      for (let i = 0; i < value.length; i++) {
-        _trackNested(value[i], options, currentDepth + 1);
-      }
-    } else if (isPureObject(value)) {
-      for (const key in value) {
-        _trackNested(value[key], options, currentDepth + 1);
-      }
-    }
+  if (depth !== undefined && currentDepth >= depth) {
+    return value;
   }
 
+  if (!canBeSignal(value)) {
+    return value;
+  }
+
+  let valueSignal = getSignal<object>(value);
+
+  if (!valueSignal) {
+    return value;
+  }
+
+  let subscribedKeys = currentEffect.subscriptions.get(valueSignal);
+
+  // Если ээфект вообще не подписан на этот сигнал,
+  // то subscribedKeys будет undefined
+  // Тогда нужно создать новый объект, добавить туда ключ, на который подписывается эффект
+  // и подписать объект на сигнал
+  if (!subscribedKeys) {
+    const newSubscribedKeys: Map<string | symbol, number> = new Map();
+    currentEffect.subscriptions.set(valueSignal, newSubscribedKeys);
+    valueSignal.addSubscriber(currentEffect);
+    subscribedKeys = newSubscribedKeys;
+  }
+
+  subscribedKeys.set(ANY_KEY_SYMBOL, currentEffect.version);
+
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      _trackNested(value[i], depth, currentDepth + 1);
+    }
+  } else if (isPureObject(value)) {
+    for (const key in value) {
+      _trackNested(value[key], depth, currentDepth + 1);
+    }
+  }
   return value;
 }
 
@@ -337,6 +338,11 @@ function _trackNested<Value>(value: Value, options: TrackNestedOptions = trackNe
  * @param options.depth Глубина отслеживания. Если не указано, то отслеживание будет производиться до бесконечности
  * @returns переданное в первом агрументе значение
  */
-export function trackNested<Value>(value: Value, options?: TrackNestedOptions): Value {
-  return _trackNested(value, options);
+export function trackNested<Value>(value: Value, depth?: number): Value {
+  if (depth !== undefined && depth <= 0) {
+    console.warn("trackNested: параметр depth должен быть больше 0");
+    return value;
+  }
+
+  return _trackNested(value, depth);
 }
