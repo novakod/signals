@@ -8,6 +8,7 @@ export type Effect = {
   isDisposed: boolean;
   // Функция, которая вызывает эффект
   version: number;
+  ignoreVersion: boolean;
   subscriptions: Map<Signal<object>, Map<string | symbol, number>>;
   runCb(): void;
 };
@@ -130,7 +131,7 @@ export function createSignal<T extends object>(value: T): T {
           // версии эффекта
           signal.subscribers?.forEach((effect) => {
             const currentSignalSubscriptions = effect.subscriptions.get(signal);
-            if (currentSignalSubscriptions?.get(ANY_KEY_SYMBOL) === effect.version || currentSignalSubscriptions?.get(key) === effect.version) {
+            if (effect.ignoreVersion || currentSignalSubscriptions?.get(ANY_KEY_SYMBOL) === effect.version || currentSignalSubscriptions?.get(key) === effect.version) {
               if (effect.isDisposed) {
                 signal.subscribers?.delete(effect);
                 effect.subscriptions.delete(signal);
@@ -184,13 +185,18 @@ export function createSignal<T extends object>(value: T): T {
  *
  * dispose();
  * @param cb - функция, использованные сигналы внутри которой будут отслеживаться
+ * @param ignoreVersion - игнорировать версию сигнала.
+ * Если true, то версионирование выключается и эффект будет вызываться в случае,
+ * если сигнал был получен внутри хотя бы один раз.
+ * При true и использовании `trackNested` скорость алгоритма значительно выше.
  * @returns функция для отмены отслеживания
  */
-export function createEffect(cb: VoidFunction): VoidFunction {
+export function createEffect(cb: VoidFunction, ignoreVersion = false): VoidFunction {
   const effect: Effect = {
     cb,
     isDisposed: false,
     version: 0,
+    ignoreVersion,
     subscriptions: new Map(),
     runCb() {
       // Если запущен батчинг, то нужно отложить вызов эффектов
@@ -199,7 +205,9 @@ export function createEffect(cb: VoidFunction): VoidFunction {
         currentBatch.add(this);
       } else {
         currentEffect = this;
-        this.version++;
+        if (!ignoreVersion) {
+          this.version++;
+        }
         this.cb();
         currentEffect = null;
       }
@@ -312,6 +320,14 @@ function _trackNested<Value>(value: Value, depth?: number, currentDepth = 0): Va
     currentEffect.subscriptions.set(valueSignal, newSubscribedKeys);
     valueSignal.addSubscriber(currentEffect);
     subscribedKeys = newSubscribedKeys;
+  }
+
+  // Если версионирование не требуется и эффекта уже подписан на сигнал,
+  // то возвращаем значение и не проходимся по вложенным массивам и объектам,
+  // так как в случае наличия подписки ээфекта на сигнал подразумевается,
+  // что эффект уже подписан и на вложенные массивы и объекты в прошлых вызовах функции
+  if (currentEffect.ignoreVersion && subscribedKeys.has(ANY_KEY_SYMBOL)) {
+    return value;
   }
 
   // Подписываем эффект на сигнал по любому ключу

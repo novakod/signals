@@ -1,5 +1,5 @@
 import { Suite } from "benchmark";
-import { createEffect, createSignal } from "../src/signals";
+import { createEffect, createSignal, trackNested } from "../src/signals";
 
 const suite = new Suite();
 
@@ -15,8 +15,8 @@ const signal = createSignal(getData());
 
 for (let i = 0; i < 100; i++) {
   createEffect(() => {
-    signal.users;
-  });
+    trackNested(signal.users, 1);
+  }, true);
 }
 
 suite
@@ -24,9 +24,9 @@ suite
     console.log(String(event.target));
   })
   .add("createDeepSignal", () => {
-    // signal.users.push({ id: signal.users.length, name: "test" });
+    signal.users.push({ id: signal.users.length, name: "test" });
 
-    signal.users[0].name = "test";
+    // signal.users[0].name = "test";
   })
   .run({
     async: true,

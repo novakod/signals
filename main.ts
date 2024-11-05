@@ -12,8 +12,8 @@ const signal = createSignal({
 const dispose = createEffect(() => {
   console.log("createEffect", Date.now());
 
-  trackNested(signal.items);
-});
+  trackNested(signal.items, 1);
+}, true);
 
 document.querySelector("#button1")?.addEventListener("click", () => {
   signal.items.pop();
