@@ -279,20 +279,25 @@ export function getSignalValue<Value>(value: Value): Value {
 }
 
 function _trackNested<Value>(value: Value, depth?: number, currentDepth = 0): Value {
+  // Если функция вызывается не внутри эффекта, то игнорируем и просто возвращаем значение
   if (!currentEffect) {
     return value;
   }
 
+  // Если глубина не указана, то это значит, что нужно отслеживать все вложенные массивы и объекты
+  // Однако, если глубина указана, то возврвщаем значение, если уже дошли до указанной глубины
   if (depth !== undefined && currentDepth >= depth) {
     return value;
   }
 
+  // Если значение не может быть сигналом, то возвращаем его как есть
   if (!canBeSignal(value)) {
     return value;
   }
 
   let valueSignal = getSignal<object>(value);
 
+  // Если у значения нет созданного сигнала, то игнорируем и возвращаем его как есть
   if (!valueSignal) {
     return value;
   }
@@ -301,8 +306,7 @@ function _trackNested<Value>(value: Value, depth?: number, currentDepth = 0): Va
 
   // Если ээфект вообще не подписан на этот сигнал,
   // то subscribedKeys будет undefined
-  // Тогда нужно создать новый объект, добавить туда ключ, на который подписывается эффект
-  // и подписать объект на сигнал
+  // Тогда нужно создать пока пустой список подписчиков эффекта
   if (!subscribedKeys) {
     const newSubscribedKeys: Map<string | symbol, number> = new Map();
     currentEffect.subscriptions.set(valueSignal, newSubscribedKeys);
@@ -310,8 +314,11 @@ function _trackNested<Value>(value: Value, depth?: number, currentDepth = 0): Va
     subscribedKeys = newSubscribedKeys;
   }
 
+  // Подписываем эффект на сигнал по любому ключу
   subscribedKeys.set(ANY_KEY_SYMBOL, currentEffect.version);
 
+  // Если значение это массив или "чистый объект", то
+  // вызываем функцию для каждого элемента массива и объекта
   if (Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) {
       _trackNested(value[i], depth, currentDepth + 1);
@@ -334,8 +341,7 @@ function _trackNested<Value>(value: Value, depth?: number, currentDepth = 0): Va
  *
  * signal.users[0].name = "test";
  * @param value Прокси, значение которого нужно отслеживать
- * @param options Настройки отслеживания
- * @param options.depth Глубина отслеживания. Если не указано, то отслеживание будет производиться до бесконечности
+ * @param depth Глубина отслеживания. Если не указано, то отслеживание будет производиться до бесконечности
  * @returns переданное в первом агрументе значение
  */
 export function trackNested<Value>(value: Value, depth?: number): Value {
