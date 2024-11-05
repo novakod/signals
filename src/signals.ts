@@ -6,10 +6,17 @@ export type Effect = {
   cb: VoidFunction;
   // Флаг, что эффект больше не активен
   isDisposed: boolean;
-  // Функция, которая вызывает эффект
+  // Текущая версия эффекта
   version: number;
+  // Будет ли игнорироваться версия эффекта при проверке необходимости вызова функции cb
   ignoreVersion: boolean;
+  // Список подписчиков эффекта
+  // По ключу лежит сигнал, на который подписан эффект
+  // В значении лежит объект, где ключ - это ключ сигнала, по которому подписан эффект,
+  // а значение - версия эффекта, на которую подписан сигнал
   subscriptions: Map<Signal<object>, Map<string | symbol, number>>;
+  // Функция, которая позволяет вызывать cb
+  // Нужна для реализации батчинга
   runCb(): void;
 };
 
@@ -132,12 +139,7 @@ export function createSignal<T extends object>(value: T): T {
           signal.subscribers?.forEach((effect) => {
             const currentSignalSubscriptions = effect.subscriptions.get(signal);
             if (effect.ignoreVersion || currentSignalSubscriptions?.get(ANY_KEY_SYMBOL) === effect.version || currentSignalSubscriptions?.get(key) === effect.version) {
-              if (effect.isDisposed) {
-                signal.subscribers?.delete(effect);
-                effect.subscriptions.delete(signal);
-              } else {
-                effect.runCb();
-              }
+              effect.runCb();
             }
           });
         }
@@ -199,6 +201,16 @@ export function createEffect(cb: VoidFunction, ignoreVersion = false): VoidFunct
     ignoreVersion,
     subscriptions: new Map(),
     runCb() {
+      // Если эффект неактивен, то удаляем все подписки и не вызываем cb
+      if (effect.isDisposed) {
+        effect.subscriptions.forEach((_, signal) => {
+          signal.subscribers?.delete(effect);
+        });
+        effect.subscriptions.clear();
+
+        return;
+      }
+
       // Если запущен батчинг, то нужно отложить вызов эффектов
       // до тех пор пока батчинг не закончится
       if (currentBatch) {
@@ -258,16 +270,7 @@ export function batch(cb: () => void) {
     cb();
     const executedBatch = currentBatch;
     currentBatch = null;
-    executedBatch.forEach((effect) => {
-      if (effect.isDisposed) {
-        effect.subscriptions.forEach((_, signal) => {
-          signal.subscribers?.delete(effect);
-        });
-        effect.subscriptions.clear();
-      } else {
-        effect.runCb();
-      }
-    });
+    executedBatch.forEach((effect) => effect.runCb());
   }
 }
 
